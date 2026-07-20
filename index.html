@@ -1,0 +1,1746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Series Player</title>
+    <style>
+        /* Reset & Base */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0a0a;
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* ============================================ */
+        /* HOME SCREEN */
+        /* ============================================ */
+        #home-screen {
+            display: none;
+            min-height: 100vh;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a0a 100%);
+        }
+
+        #home-screen.active {
+            display: flex !important;
+        }
+
+        .home-container {
+            max-width: 800px;
+            width: 100%;
+            animation: fadeInUp 0.6s ease;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .home-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .home-header h1 {
+            font-size: 48px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #e50914, #ff6b6b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .home-header p {
+            color: #888;
+            font-size: 18px;
+        }
+
+        /* Search Section */
+        .search-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+        }
+
+        .search-box {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .search-box input {
+            flex: 1;
+            padding: 14px 20px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            color: #fff;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        .search-box input::placeholder {
+            color: #666;
+        }
+
+        .search-box input:focus {
+            border-color: #e50914;
+            background: rgba(255, 255, 255, 0.12);
+            box-shadow: 0 0 20px rgba(229, 9, 20, 0.1);
+        }
+
+        .search-box button {
+            padding: 14px 32px;
+            background: #e50914;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .search-box button:hover {
+            background: #f40612;
+            transform: scale(1.02);
+        }
+
+        .search-box button:active {
+            transform: scale(0.98);
+        }
+
+        .search-box button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .search-hint {
+            color: #666;
+            font-size: 13px;
+            margin-top: 8px;
+        }
+
+        .error-message {
+            color: #ff6b6b;
+            font-size: 14px;
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(255, 0, 0, 0.1);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 0, 0, 0.2);
+        }
+
+        /* Continue Watching Row */
+        #continue-watching {
+            margin-bottom: 30px;
+        }
+
+        #continue-watching h2 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #ddd;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .continue-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+        }
+
+        .continue-item {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 16px 18px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .continue-item:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(229, 9, 20, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .continue-item .continue-title {
+            font-weight: 600;
+            color: #fff;
+            font-size: 15px;
+        }
+
+        .continue-item .continue-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: #888;
+        }
+
+        .continue-item .continue-progress-bar {
+            width: 100%;
+            height: 3px;
+            background: #333;
+            border-radius: 2px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+
+        .continue-item .continue-progress-fill {
+            height: 100%;
+            background: #e50914;
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        .continue-item .continue-remove {
+            background: none;
+            border: none;
+            color: #555;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            position: absolute;
+            top: 8px;
+            right: 8px;
+        }
+
+        .continue-item .continue-remove:hover {
+            color: #ff6b6b;
+            background: rgba(255, 0, 0, 0.1);
+        }
+
+        /* Recent Shows */
+        .recent-shows {
+            margin-bottom: 30px;
+        }
+
+        .recent-shows h2 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #ddd;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .recent-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+        }
+
+        .recent-item {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 16px 18px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .recent-item:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(229, 9, 20, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .recent-item .recent-title {
+            font-weight: 600;
+            color: #fff;
+            font-size: 15px;
+        }
+
+        .recent-item .recent-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: #888;
+        }
+
+        .recent-item .recent-progress {
+            color: #e50914;
+            font-weight: 500;
+        }
+
+        .recent-item .recent-remove {
+            background: none;
+            border: none;
+            color: #555;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .recent-item .recent-remove:hover {
+            color: #ff6b6b;
+            background: rgba(255, 0, 0, 0.1);
+        }
+
+        /* Quick Examples */
+        .quick-examples h3 {
+            font-size: 14px;
+            color: #666;
+            font-weight: 500;
+            margin-bottom: 12px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .example-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 10px;
+        }
+
+        .example-card {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 8px;
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .example-card:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(229, 9, 20, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .example-card .example-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #ddd;
+        }
+
+        .example-card .example-id {
+            font-size: 11px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        /* ============================================ */
+        /* PLAYER SCREEN */
+        /* ============================================ */
+        #player-screen {
+            display: none;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        #player-screen.active {
+            display: block !important;
+        }
+
+        #app {
+            width: 100%;
+            background: #141414;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9);
+            position: relative;
+        }
+
+        /* Back Button */
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .back-btn:hover {
+            background: rgba(229, 9, 20, 0.8);
+            transform: scale(1.05);
+        }
+
+        /* Player Wrapper */
+        #player-wrapper {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background: #000;
+            overflow: hidden;
+        }
+
+        #player {
+            width: 100%;
+            height: 100%;
+            border: none;
+            pointer-events: none;
+        }
+
+        #player-wrapper:hover #player {
+            pointer-events: auto;
+        }
+
+        /* Loading Indicator */
+        #loading-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 5;
+            color: #fff;
+            font-size: 18px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 20px 30px;
+            border-radius: 8px;
+            display: none;
+            align-items: center;
+            gap: 12px;
+        }
+
+        #loading-indicator.active {
+            display: flex;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Episode Info */
+        #episode-info {
+            position: absolute;
+            bottom: 80px;
+            left: 30px;
+            z-index: 10;
+            pointer-events: none;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%);
+            padding: 20px 30px 30px 30px;
+            border-radius: 8px;
+            max-width: 60%;
+        }
+
+        #player-wrapper:hover #episode-info {
+            opacity: 1;
+        }
+
+        #show-title {
+            font-size: 24px;
+            font-weight: 700;
+            display: block;
+            color: #fff;
+            margin-bottom: 4px;
+            letter-spacing: 0.5px;
+        }
+
+        #episode-label {
+            font-size: 16px;
+            color: #ccc;
+            display: block;
+            font-weight: 400;
+        }
+
+        #episode-title {
+            font-size: 14px;
+            color: #aaa;
+            display: block;
+            margin-top: 2px;
+            font-weight: 300;
+        }
+
+        /* VidAPI Attribution */
+        #vidapi-attribution {
+            position: absolute;
+            bottom: 15px;
+            right: 20px;
+            z-index: 8;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.3);
+            pointer-events: none;
+            text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+            letter-spacing: 0.5px;
+        }
+
+        /* Skip Intro Button */
+        .skip-button {
+            position: absolute;
+            bottom: 100px;
+            right: 30px;
+            z-index: 20;
+            transition: opacity 0.3s ease;
+        }
+
+        .skip-button button {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            letter-spacing: 0.3px;
+        }
+
+        .skip-button button:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: scale(1.05);
+        }
+
+        .skip-button.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Next Episode Overlay */
+        #next-episode-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 30;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            transition: opacity 0.5s ease;
+        }
+
+        #next-episode-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .next-episode-content {
+            text-align: center;
+            padding: 40px;
+            background: rgba(20, 20, 20, 0.9);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            min-width: 300px;
+        }
+
+        .next-episode-content h3 {
+            font-size: 20px;
+            font-weight: 400;
+            color: #aaa;
+            margin-bottom: 16px;
+        }
+
+        #next-countdown {
+            font-size: 64px;
+            font-weight: 700;
+            color: #fff;
+            margin: 20px 0;
+        }
+
+        #next-now-btn {
+            background: #e50914;
+            color: #fff;
+            border: none;
+            padding: 12px 40px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            margin-top: 10px;
+        }
+
+        #next-now-btn:hover {
+            background: #f40612;
+        }
+
+        /* Progress Thumbnail */
+        #progress-thumbnail {
+            position: absolute;
+            bottom: 20px;
+            display: none;
+            background: #000;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            overflow: hidden;
+            width: 160px;
+            height: 90px;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        #progress-thumbnail.show {
+            display: block;
+        }
+
+        #progress-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        #progress-thumbnail .thumb-time {
+            position: absolute;
+            bottom: 4px;
+            right: 6px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            color: #fff;
+        }
+
+        /* ============================================ */
+        /* CONTROLS BAR */
+        /* ============================================ */
+        #controls-bar {
+            padding: 12px 24px 16px;
+            background: #1a1a1a;
+            border-top: 1px solid #2a2a2a;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        #controls-bar.hidden {
+            opacity: 0;
+            transform: translateY(100%);
+            pointer-events: none;
+        }
+
+        /* Fullscreen specific styles */
+        #player-screen:fullscreen #controls-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%);
+            border-top: none;
+            padding: 20px 40px 30px;
+        }
+
+        #player-screen:fullscreen #app {
+            border-radius: 0;
+            max-width: 100%;
+        }
+
+        #player-screen:fullscreen #player-wrapper {
+            border-radius: 0;
+        }
+
+        #player-screen:fullscreen .back-btn {
+            position: fixed;
+            top: 30px;
+            left: 30px;
+            z-index: 200;
+        }
+
+        #player-screen:fullscreen #episode-info {
+            bottom: 120px;
+            left: 40px;
+            font-size: 1.2em;
+        }
+
+        #player-screen:fullscreen #shortcuts-help {
+            display: none;
+        }
+
+        #player-screen:fullscreen #controls-bar.hidden {
+            opacity: 0;
+            transform: translateY(100%);
+            pointer-events: none;
+        }
+
+        #player-screen:fullscreen #controls-bar:not(.hidden) {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        #player-screen:fullscreen #episode-info {
+            opacity: 1 !important;
+            background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 100%);
+            padding: 30px 40px 40px 40px;
+        }
+
+        #player-screen:fullscreen #show-title {
+            font-size: 28px;
+        }
+
+        #player-screen:fullscreen #episode-label {
+            font-size: 18px;
+        }
+
+        #player-screen:fullscreen #episode-title {
+            font-size: 16px;
+        }
+
+        #player-screen:fullscreen .skip-button {
+            bottom: 140px;
+            right: 40px;
+        }
+
+        #player-screen:fullscreen #progress-bar {
+            height: 6px;
+        }
+
+        #player-screen:fullscreen #progress-bar:hover {
+            height: 10px;
+        }
+
+        #player-screen:fullscreen #time-display {
+            font-size: 14px;
+        }
+
+        #player-screen:fullscreen .controls-row button {
+            font-size: 22px;
+            padding: 8px 12px;
+        }
+
+        #player-screen:fullscreen #play-pause-btn {
+            font-size: 28px;
+            width: 48px;
+        }
+
+        #player-screen:fullscreen #episode-selector select {
+            font-size: 15px;
+            padding: 6px 12px;
+        }
+
+        #player-screen:fullscreen #episode-counter {
+            font-size: 15px;
+        }
+
+        #player-screen:fullscreen.hide-cursor {
+            cursor: none;
+        }
+
+        #player-screen:fullscreen.hide-cursor #controls-bar {
+            opacity: 0 !important;
+            transform: translateY(100%) !important;
+            pointer-events: none !important;
+        }
+
+        #player-screen:fullscreen.hide-cursor #episode-info {
+            opacity: 0 !important;
+            transition: opacity 0.5s ease;
+        }
+
+        /* Keyboard Shortcuts Popup */
+        #shortcuts-popup {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 999;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #shortcuts-popup.active {
+            display: flex;
+        }
+
+        .shortcuts-content {
+            background: #1a1a1a;
+            padding: 40px 50px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .shortcuts-content h2 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #fff;
+        }
+
+        .shortcuts-content .shortcut-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            color: #ccc;
+            font-size: 14px;
+        }
+
+        .shortcuts-content .shortcut-row:last-child {
+            border-bottom: none;
+        }
+
+        .shortcuts-content .shortcut-key {
+            color: #e50914;
+            font-weight: 600;
+            font-family: monospace;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 2px 10px;
+            border-radius: 4px;
+        }
+
+        .shortcuts-content .close-shortcuts {
+            margin-top: 20px;
+            padding: 10px 30px;
+            background: #e50914;
+            border: none;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .shortcuts-content .close-shortcuts:hover {
+            background: #f40612;
+        }
+
+        /* Episode/Season Selector */
+        #episode-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        #episode-selector select {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            outline: none;
+            min-width: 50px;
+        }
+
+        #episode-selector select:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        #episode-selector select option {
+            background: #1a1a1a;
+            color: #fff;
+        }
+
+        #episode-selector .selector-label {
+            font-size: 12px;
+            color: #888;
+            font-weight: 600;
+        }
+
+        #go-to-episode-btn {
+            background: rgba(229, 9, 20, 0.6);
+            color: #fff;
+            border: none;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        #go-to-episode-btn:hover {
+            background: rgba(229, 9, 20, 0.9);
+        }
+
+        /* Controls Row */
+        #progress-container {
+            margin-bottom: 10px;
+        }
+
+        #progress-bar {
+            position: relative;
+            width: 100%;
+            height: 4px;
+            background: #333;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: height 0.2s ease;
+            touch-action: none;
+        }
+
+        #progress-bar:hover {
+            height: 6px;
+        }
+
+        #progress-fill {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 0%;
+            background: #e50914;
+            border-radius: 2px;
+            transition: width 0.1s linear;
+        }
+
+        #progress-buffer {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 0%;
+            background: #555;
+            border-radius: 2px;
+        }
+
+        #time-display {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #888;
+            margin-top: 4px;
+        }
+
+        .controls-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .left-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .right-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .controls-row button {
+            background: none;
+            border: none;
+            color: #ccc;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 4px 6px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            line-height: 1;
+        }
+
+        .controls-row button:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        #play-pause-btn {
+            font-size: 20px;
+            width: 34px;
+        }
+
+        #episode-counter {
+            font-size: 12px;
+            color: #888;
+            font-weight: 500;
+            min-width: 60px;
+        }
+
+        /* Speed & Quality Selectors */
+        #speed-selector {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #ccc;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            outline: none;
+        }
+
+        #speed-selector option {
+            background: #1a1a1a;
+            color: #fff;
+        }
+
+        #quality-selector {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #ccc;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            outline: none;
+        }
+
+        #quality-selector option {
+            background: #1a1a1a;
+            color: #fff;
+        }
+
+        /* Server Selector */
+        #server-selector {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #ccc;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            outline: none;
+            max-width: 140px;
+        }
+
+        #server-selector option {
+            background: #1a1a1a;
+            color: #fff;
+        }
+
+        #server-selector:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        #server-selector:focus {
+            border-color: rgba(229, 9, 20, 0.5);
+        }
+
+        /* Keyboard Shortcuts Help */
+        #shortcuts-help {
+            padding: 6px 24px 10px;
+            font-size: 11px;
+            color: #444;
+            text-align: center;
+            border-top: 1px solid #222;
+            background: #111;
+            cursor: pointer;
+        }
+
+        #shortcuts-help:hover {
+            color: #888;
+        }
+
+        #shortcuts-help kbd {
+            background: #2a2a2a;
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            color: #888;
+            border: 1px solid #333;
+            font-family: inherit;
+        }
+
+        /* Server Notification */
+        .server-notification {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.85);
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 8px;
+            z-index: 1000;
+            font-size: 14px;
+            font-weight: 500;
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.1);
+            animation: slideUp 0.3s ease;
+            transition: opacity 0.3s ease;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+
+        /* ============================================ */
+        /* THEME TOGGLE */
+        /* ============================================ */
+        body.light-theme {
+            background: #f0f0f0;
+        }
+
+        body.light-theme #home-screen {
+            background: radial-gradient(ellipse at center, #e8e8e8 0%, #f5f5f5 100%);
+        }
+
+        body.light-theme .home-header h1 {
+            -webkit-text-fill-color: #e50914;
+        }
+
+        body.light-theme .home-header p {
+            color: #666;
+        }
+
+        body.light-theme .search-section {
+            background: rgba(255, 255, 255, 0.9);
+            border-color: rgba(0, 0, 0, 0.1);
+        }
+
+        body.light-theme .search-box input {
+            background: rgba(0, 0, 0, 0.05);
+            border-color: rgba(0, 0, 0, 0.1);
+            color: #333;
+        }
+
+        body.light-theme .search-box input::placeholder {
+            color: #999;
+        }
+
+        body.light-theme .recent-item,
+        body.light-theme .continue-item,
+        body.light-theme .example-card {
+            background: rgba(255, 255, 255, 0.8);
+            border-color: rgba(0, 0, 0, 0.08);
+        }
+
+        body.light-theme .recent-item .recent-title,
+        body.light-theme .continue-item .continue-title {
+            color: #333;
+        }
+
+        body.light-theme #app {
+            background: #f5f5f5;
+        }
+
+        body.light-theme #controls-bar {
+            background: #e8e8e8;
+            border-top-color: #ddd;
+        }
+
+        body.light-theme #shortcuts-help {
+            background: #e8e8e8;
+            border-top-color: #ddd;
+            color: #666;
+        }
+
+        body.light-theme .controls-row button {
+            color: #666;
+        }
+
+        body.light-theme .controls-row button:hover {
+            color: #333;
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        body.light-theme #episode-selector {
+            background: rgba(0, 0, 0, 0.05);
+            border-color: rgba(0, 0, 0, 0.08);
+        }
+
+        body.light-theme #episode-selector select {
+            background: rgba(0, 0, 0, 0.05);
+            border-color: rgba(0, 0, 0, 0.1);
+            color: #333;
+        }
+
+        body.light-theme #episode-selector select option {
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        body.light-theme #speed-selector,
+        body.light-theme #quality-selector,
+        body.light-theme #server-selector {
+            background: rgba(0, 0, 0, 0.05);
+            border-color: rgba(0, 0, 0, 0.08);
+            color: #666;
+        }
+
+        body.light-theme #speed-selector option,
+        body.light-theme #quality-selector option,
+        body.light-theme #server-selector option {
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        body.light-theme #time-display {
+            color: #666;
+        }
+
+        body.light-theme #progress-bar {
+            background: #ddd;
+        }
+
+        body.light-theme #progress-buffer {
+            background: #bbb;
+        }
+
+        body.light-theme #show-title {
+            color: #333;
+        }
+
+        body.light-theme #episode-label {
+            color: #666;
+        }
+
+        body.light-theme #episode-title {
+            color: #888;
+        }
+
+        body.light-theme .shortcuts-content {
+            background: #f5f5f5;
+            border-color: rgba(0, 0, 0, 0.1);
+        }
+
+        body.light-theme .shortcuts-content h2 {
+            color: #333;
+        }
+
+        body.light-theme .shortcuts-content .shortcut-row {
+            color: #666;
+            border-bottom-color: rgba(0, 0, 0, 0.05);
+        }
+
+        body.light-theme #vidapi-attribution {
+            color: rgba(0, 0, 0, 0.3);
+        }
+
+        body.light-theme .back-btn {
+            background: rgba(255, 255, 255, 0.8);
+            color: #333;
+            border-color: rgba(0, 0, 0, 0.1);
+        }
+
+        body.light-theme .back-btn:hover {
+            background: rgba(229, 9, 20, 0.9);
+            color: #fff;
+        }
+
+        /* ============================================ */
+        /* RESPONSIVE */
+        /* ============================================ */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .home-header h1 {
+                font-size: 32px;
+            }
+
+            .search-section {
+                padding: 20px;
+            }
+
+            .search-box {
+                flex-direction: column;
+            }
+
+            .search-box button {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .recent-list,
+            .continue-list {
+                grid-template-columns: 1fr;
+            }
+
+            .example-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            #player-screen {
+                padding: 10px;
+            }
+
+            #controls-bar {
+                padding: 10px 12px 12px;
+            }
+
+            .controls-row button {
+                font-size: 15px;
+                padding: 3px 4px;
+            }
+
+            #episode-info {
+                bottom: 60px;
+                left: 15px;
+                padding: 15px 20px 20px 20px;
+                max-width: 80%;
+            }
+
+            #show-title {
+                font-size: 18px;
+            }
+
+            #episode-label {
+                font-size: 13px;
+            }
+
+            #episode-title {
+                font-size: 12px;
+            }
+
+            .skip-button {
+                bottom: 70px;
+                right: 15px;
+            }
+
+            .skip-button button {
+                padding: 6px 14px;
+                font-size: 12px;
+            }
+
+            #shortcuts-help {
+                display: none;
+            }
+
+            .back-btn {
+                top: 10px;
+                left: 10px;
+                padding: 6px 12px;
+                font-size: 11px;
+            }
+
+            #episode-selector {
+                padding: 2px 8px;
+                gap: 4px;
+            }
+
+            #episode-selector select {
+                font-size: 11px;
+                padding: 2px 4px;
+                min-width: 36px;
+            }
+
+            #episode-selector .selector-label {
+                font-size: 10px;
+            }
+
+            #go-to-episode-btn {
+                font-size: 10px;
+                padding: 2px 8px;
+            }
+
+            #vidapi-attribution {
+                font-size: 9px;
+                bottom: 10px;
+                right: 12px;
+            }
+
+            #speed-selector,
+            #quality-selector,
+            #server-selector {
+                font-size: 10px;
+                padding: 2px 4px;
+                max-width: 80px;
+            }
+
+            .shortcuts-content {
+                padding: 20px;
+            }
+
+            #player-screen:fullscreen #episode-info {
+                bottom: 100px;
+                left: 20px;
+                padding: 20px;
+            }
+
+            #player-screen:fullscreen #show-title {
+                font-size: 20px;
+            }
+
+            #player-screen:fullscreen #episode-label {
+                font-size: 14px;
+            }
+
+            #player-screen:fullscreen .skip-button {
+                bottom: 110px;
+                right: 20px;
+            }
+
+            #player-screen:fullscreen #controls-bar {
+                padding: 12px 20px 20px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .example-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .controls-row {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 6px;
+            }
+
+            .left-controls {
+                justify-content: center;
+            }
+
+            .right-controls {
+                justify-content: center;
+            }
+
+            #episode-selector {
+                justify-content: center;
+            }
+
+            #server-selector {
+                max-width: 100px;
+            }
+
+            #player-screen:fullscreen #episode-info {
+                bottom: 80px;
+                left: 10px;
+                padding: 15px;
+                max-width: 90%;
+            }
+
+            #player-screen:fullscreen #show-title {
+                font-size: 16px;
+            }
+
+            #player-screen:fullscreen #episode-label {
+                font-size: 12px;
+            }
+
+            #player-screen:fullscreen .controls-row button {
+                font-size: 16px;
+                padding: 4px 6px;
+            }
+
+            #player-screen:fullscreen #play-pause-btn {
+                font-size: 20px;
+                width: 36px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ============================================ -->
+    <!-- HOME SCREEN -->
+    <!-- ============================================ -->
+    <div id="home-screen" class="active">
+        <div class="home-container">
+            <div class="home-header">
+                <h1>🎬 Series Player</h1>
+                <p>Watch any TV show with auto-play, resume, and skip features</p>
+            </div>
+
+            <!-- Search Section -->
+            <div class="search-section">
+                <div class="search-box">
+                    <input
+                        type="text"
+                        id="search-input"
+                        placeholder="Enter TMDB ID (e.g., 3796) or IMDB ID (e.g., tt0944947)"
+                        autofocus
+                    />
+                    <button id="search-btn">▶ Watch</button>
+                </div>
+                <div class="search-hint">
+                    <small>Try: 3796 (Game of Thrones) or tt0944947</small>
+                </div>
+                <div id="search-error" class="error-message hidden"></div>
+            </div>
+
+            <!-- Continue Watching Row -->
+            <div id="continue-watching" class="hidden">
+                <h2>▶ Continue Watching</h2>
+                <div id="continue-list" class="continue-list"></div>
+            </div>
+
+            <!-- Recent Shows -->
+            <div id="recent-shows" class="recent-shows hidden">
+                <h2>📺 Recent Shows</h2>
+                <div id="recent-list" class="recent-list"></div>
+            </div>
+
+            <!-- Quick Examples -->
+            <div class="quick-examples">
+                <h3>Quick Examples</h3>
+                <div class="example-grid">
+                    <div class="example-card" data-id="3796">
+                        <span class="example-title">Game of Thrones</span>
+                        <span class="example-id">TMDB: 3796</span>
+                    </div>
+                    <div class="example-card" data-id="tt13159924">
+                        <span class="example-title">House of the Dragon</span>
+                        <span class="example-id">IMDB: tt13159924</span>
+                    </div>
+                    <div class="example-card" data-id="1399">
+                        <span class="example-title">Game of Thrones</span>
+                        <span class="example-id">TMDB: 1399</span>
+                    </div>
+                    <div class="example-card" data-id="tt0903747">
+                        <span class="example-title">Breaking Bad</span>
+                        <span class="example-id">IMDB: tt0903747</span>
+                    </div>
+                    <div class="example-card" data-id="tt0290988">
+                        <span class="example-title">Trailer Park Boys</span>
+                        <span class="example-id">IMDB: tt0290988</span>
+                    </div>
+                    <div class="example-card" data-id="tt0412142">
+                        <span class="example-title">House M.D.</span>
+                        <span class="example-id">IMDB: tt0412142</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- PLAYER SCREEN -->
+    <!-- ============================================ -->
+    <div id="player-screen" class="hidden">
+        <div id="app">
+            <!-- Back Button -->
+            <button id="back-btn" class="back-btn" title="Back to home">← Home</button>
+
+            <div id="player-wrapper">
+                <!-- Loading indicator -->
+                <div id="loading-indicator">
+                    <span class="spinner"></span>
+                    Loading episode...
+                </div>
+
+                <iframe id="player"
+                        allow="autoplay; fullscreen; picture-in-picture"
+                        allowfullscreen
+                        frameborder="0">
+                </iframe>
+
+                <!-- Overlay UI Elements -->
+                <div id="episode-info">
+                    <span id="show-title"></span>
+                    <span id="episode-label"></span>
+                    <span id="episode-title"></span>
+                </div>
+
+                <!-- VidAPI Attribution -->
+                <div id="vidapi-attribution">Powered by VidAPI</div>
+
+                <div id="skip-intro" class="skip-button hidden">
+                    <button>⏭ Skip Intro</button>
+                </div>
+
+                <div id="next-episode-overlay" class="hidden">
+                    <div class="next-episode-content">
+                        <h3>Next Episode Starting In</h3>
+                        <div id="next-countdown">5</div>
+                        <button id="next-now-btn">Play Now</button>
+                    </div>
+                </div>
+
+                <!-- Progress Thumbnail -->
+                <div id="progress-thumbnail">
+                    <img src="" alt="Preview" />
+                    <span class="thumb-time">0:00</span>
+                </div>
+            </div>
+
+            <!-- Controls Bar -->
+            <div id="controls-bar">
+                <div id="progress-container">
+                    <div id="progress-bar">
+                        <div id="progress-fill"></div>
+                        <div id="progress-buffer"></div>
+                    </div>
+                    <div id="time-display">
+                        <span id="current-time">0:00</span>
+                        <span id="total-time">0:00</span>
+                    </div>
+                </div>
+
+                <div class="controls-row">
+                    <div class="left-controls">
+                        <button id="play-pause-btn" title="Play/Pause (Space)">⏸</button>
+                        <button id="prev-episode-btn" title="Previous Episode">⏮</button>
+                        <button id="next-episode-btn" title="Next Episode (N)">⏭</button>
+                        
+                        <!-- Episode/Season Selector -->
+                        <div id="episode-selector">
+                            <span class="selector-label">S</span>
+                            <select id="season-select">
+                                <option value="1">1</option>
+                            </select>
+                            <span class="selector-label">E</span>
+                            <select id="episode-select">
+                                <option value="1">1</option>
+                            </select>
+                            <button id="go-to-episode-btn">Go</button>
+                        </div>
+                        
+                        <span id="episode-counter">S01E01</span>
+                    </div>
+
+                    <div class="right-controls">
+                        <select id="speed-selector" title="Playback Speed">
+                            <option value="0.5">0.5x</option>
+                            <option value="0.75">0.75x</option>
+                            <option value="1" selected>1x</option>
+                            <option value="1.25">1.25x</option>
+                            <option value="1.5">1.5x</option>
+                            <option value="2">2x</option>
+                        </select>
+                        <select id="quality-selector" title="Quality (coming soon)">
+                            <option value="auto">Auto</option>
+                            <option value="1080p">1080p</option>
+                            <option value="720p">720p</option>
+                            <option value="480p">480p</option>
+                        </select>
+                        
+                        <!-- Server Selector -->
+                        <select id="server-selector" title="Select Server">
+                            <!-- Populated by JavaScript -->
+                        </select>
+                        
+                        <button id="pip-btn" title="Picture-in-Picture (I)">⧉</button>
+                        <button id="fullscreen-btn" title="Fullscreen (F)">⛶</button>
+                        <button id="theme-btn" title="Toggle Theme (T)">🌓</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Keyboard Shortcuts Help -->
+            <div id="shortcuts-help" title="Click to view keyboard shortcuts (?)">
+                <kbd>?</kbd> View all shortcuts
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- KEYBOARD SHORTCUTS POPUP -->
+    <!-- ============================================ -->
+    <div id="shortcuts-popup">
+        <div class="shortcuts-content">
+            <h2>⌨️ Keyboard Shortcuts</h2>
+            <div class="shortcut-row">
+                <span>Play / Pause</span>
+                <span class="shortcut-key">Space</span>
+            </div>
+            <div class="shortcut-row">
+                <span>Seek Forward 10s</span>
+                <span class="shortcut-key">→</span>
+            </div>
+            <div class="shortcut-row">
+                <span>Seek Backward 10s</span>
+                <span class="shortcut-key">←</span>
+            </div>
+            <div class="shortcut-row">
+                <span>Next Episode</span>
+                <span class="shortcut-key">N</span>
+            </div>
+            <div class="shortcut-row">
+                <span>Previous Episode</span>
+                <span class="shortcut-key">P</span>
+            </div>
+            <div class="shortcut-row">
+                <span>Fullscreen</span>
+                <span class="shortcut-key">F</span>
+            </div>
+            <div class="shortcut-row">
+                <span>Picture-in-Picture</span>
+                <span class="shortcut-key">I</span>
+            </div>
+            <div class="shortcut-row">
+                <span>Toggle Theme</span>
+                <span class="shortcut-key">T</span>
+            </div>
+            <div class="shortcut-row">
+                <span>Skip Intro</span>
+                <span class="shortcut-key">S</span>
+            </div>
+            <div class="shortcut-row">
+                <span>Home / Exit</span>
+                <span class="shortcut-key">Esc</span>
+            </div>
+            <div class="shortcut-row">
+                <span>Show Shortcuts</span>
+                <span class="shortcut-key">?</span>
+            </div>
+            <button class="close-shortcuts" id="close-shortcuts">Close</button>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
