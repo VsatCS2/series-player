@@ -2,26 +2,89 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="description" content="Watch any TV show with auto-play, resume, and skip features" />
     <title>Series Player</title>
     <style>
-        /* Reset & Base */
+        /* ============================================ */
+        /* CSS VARIABLES / THEMING */
+        /* ============================================ */
+        :root {
+            --bg: #0a0a0a;
+            --bg-elevated: #141414;
+            --bg-panel: #1a1a1a;
+            --bg-hover: rgba(255, 255, 255, 0.08);
+            --bg-input: rgba(255, 255, 255, 0.08);
+            --bg-card: rgba(255, 255, 255, 0.06);
+            --border: rgba(255, 255, 255, 0.08);
+            --border-strong: rgba(255, 255, 255, 0.15);
+            --text: #fff;
+            --text-muted: #888;
+            --text-dim: #666;
+            --text-faint: #444;
+            --accent: #e50914;
+            --accent-hover: #f40612;
+            --accent-glow: rgba(229, 9, 20, 0.1);
+            --progress-bg: #333;
+            --progress-buffer: #555;
+            --shadow: 0 20px 60px rgba(0, 0, 0, 0.9);
+            --radius: 12px;
+            --radius-sm: 8px;
+            --radius-xs: 6px;
+            --transition: 0.2s ease;
+        }
+
+        [data-theme="light"] {
+            --bg: #f5f5f5;
+            --bg-elevated: #f5f5f5;
+            --bg-panel: #e8e8e8;
+            --bg-hover: rgba(0, 0, 0, 0.05);
+            --bg-input: rgba(0, 0, 0, 0.05);
+            --bg-card: rgba(255, 255, 255, 0.8);
+            --border: rgba(0, 0, 0, 0.08);
+            --border-strong: rgba(0, 0, 0, 0.15);
+            --text: #333;
+            --text-muted: #666;
+            --text-dim: #999;
+            --text-faint: #bbb;
+            --accent-glow: rgba(229, 9, 20, 0.15);
+            --progress-bg: #ddd;
+            --progress-buffer: #bbb;
+            --shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+        }
+
+        /* ============================================ */
+        /* RESET & BASE */
+        /* ============================================ */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
 
+        html, body {
+            height: 100%;
+        }
+
         body {
-            background: #0a0a0a;
-            color: #fff;
+            background: var(--bg);
+            color: var(--text);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
             min-height: 100vh;
             overflow-x: hidden;
+            transition: background var(--transition), color var(--transition);
         }
 
-        .hidden {
-            display: none !important;
+        .hidden { display: none !important; }
+
+        button {
+            font-family: inherit;
+        }
+
+        :focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
         }
 
         /* ============================================ */
@@ -30,163 +93,240 @@
         #home-screen {
             display: none;
             min-height: 100vh;
-            align-items: center;
+            align-items: flex-start;
             justify-content: center;
-            padding: 20px;
-            background: radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a0a 100%);
+            padding: 40px 20px;
+            background: radial-gradient(ellipse at center, #1a1a2e 0%, var(--bg) 100%);
         }
 
-        #home-screen.active {
-            display: flex !important;
-        }
+        #home-screen.active { display: flex !important; }
 
         .home-container {
-            max-width: 800px;
+            max-width: 900px;
             width: 100%;
-            animation: fadeInUp 0.6s ease;
+            animation: fadeInUp 0.5s ease;
         }
 
         @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .home-header {
             text-align: center;
-            margin-bottom: 40px;
+            margin-bottom: 32px;
+            position: relative;
         }
 
         .home-header h1 {
-            font-size: 48px;
+            font-size: 44px;
             font-weight: 800;
-            background: linear-gradient(135deg, #e50914, #ff6b6b);
+            background: linear-gradient(135deg, var(--accent), #ff6b6b);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
         }
 
         .home-header p {
-            color: #888;
-            font-size: 18px;
+            color: var(--text-muted);
+            font-size: 16px;
+        }
+
+        .home-top-controls {
+            position: absolute;
+            top: 0;
+            right: 0;
+            display: flex;
+            gap: 8px;
+        }
+
+        .icon-btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            width: 38px;
+            height: 38px;
+            border-radius: var(--radius-xs);
+            cursor: pointer;
+            font-size: 16px;
+            transition: all var(--transition);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .icon-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text);
+            border-color: var(--border-strong);
         }
 
         /* Search Section */
         .search-section {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 16px;
-            padding: 30px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            margin-bottom: 30px;
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            padding: 24px;
+            border: 1px solid var(--border);
+            margin-bottom: 28px;
             backdrop-filter: blur(10px);
         }
 
         .search-box {
             display: flex;
-            gap: 12px;
-            margin-bottom: 10px;
+            gap: 10px;
+            margin-bottom: 8px;
         }
 
         .search-box input {
             flex: 1;
-            padding: 14px 20px;
-            background: rgba(255, 255, 255, 0.08);
-            border: 2px solid rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            color: #fff;
-            font-size: 16px;
-            transition: all 0.3s ease;
+            padding: 14px 18px;
+            background: var(--bg-input);
+            border: 2px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text);
+            font-size: 15px;
+            transition: all var(--transition);
             outline: none;
         }
 
-        .search-box input::placeholder {
-            color: #666;
-        }
+        .search-box input::placeholder { color: var(--text-dim); }
 
         .search-box input:focus {
-            border-color: #e50914;
-            background: rgba(255, 255, 255, 0.12);
-            box-shadow: 0 0 20px rgba(229, 9, 20, 0.1);
+            border-color: var(--accent);
+            background: var(--bg-input);
+            box-shadow: 0 0 0 4px var(--accent-glow);
         }
 
         .search-box button {
-            padding: 14px 32px;
-            background: #e50914;
+            padding: 14px 28px;
+            background: var(--accent);
             color: #fff;
             border: none;
-            border-radius: 10px;
-            font-size: 16px;
+            border-radius: var(--radius-sm);
+            font-size: 15px;
             font-weight: 700;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all var(--transition);
             white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 120px;
+            justify-content: center;
         }
 
-        .search-box button:hover {
-            background: #f40612;
-            transform: scale(1.02);
+        .search-box button:hover:not(:disabled) {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(229, 9, 20, 0.3);
         }
 
-        .search-box button:active {
-            transform: scale(0.98);
-        }
-
-        .search-box button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
+        .search-box button:active:not(:disabled) { transform: translateY(0); }
+        .search-box button:disabled { opacity: 0.6; cursor: not-allowed; }
 
         .search-hint {
-            color: #666;
-            font-size: 13px;
-            margin-top: 8px;
+            color: var(--text-dim);
+            font-size: 12px;
         }
 
         .error-message {
             color: #ff6b6b;
             font-size: 14px;
-            margin-top: 10px;
-            padding: 10px;
+            margin-top: 12px;
+            padding: 10px 14px;
             background: rgba(255, 0, 0, 0.1);
-            border-radius: 8px;
+            border-radius: var(--radius-xs);
             border: 1px solid rgba(255, 0, 0, 0.2);
         }
 
-        /* Continue Watching Row */
-        #continue-watching {
-            margin-bottom: 30px;
-        }
-
-        #continue-watching h2 {
-            font-size: 20px;
-            font-weight: 600;
-            color: #ddd;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
+        /* Search results */
+        .search-results {
+            margin-top: 16px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
             gap: 10px;
         }
 
-        .continue-list {
+        .search-result {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            cursor: pointer;
+            transition: all var(--transition);
+        }
+
+        .search-result:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        }
+
+        .search-result-poster {
+            width: 100%;
+            aspect-ratio: 2/3;
+            object-fit: cover;
+            background: var(--bg-panel);
+            display: block;
+        }
+
+        .search-result-poster.placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-faint);
+            font-size: 32px;
+        }
+
+        .search-result-info {
+            padding: 10px 12px;
+        }
+
+        .search-result-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .search-result-year {
+            font-size: 11px;
+            color: var(--text-dim);
+            margin-top: 2px;
+        }
+
+        /* Continue Watching / Recent */
+        #continue-watching, .recent-shows {
+            margin-bottom: 28px;
+        }
+
+        #continue-watching h2, .recent-shows h2 {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .continue-list, .recent-list {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
             gap: 12px;
         }
 
-        .continue-item {
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 10px;
-            padding: 16px 18px;
+        .continue-item, .recent-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 14px 16px;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all var(--transition);
             display: flex;
             flex-direction: column;
             gap: 4px;
@@ -194,140 +334,77 @@
             overflow: hidden;
         }
 
-        .continue-item:hover {
-            background: rgba(255, 255, 255, 0.12);
-            border-color: rgba(229, 9, 20, 0.4);
+        .continue-item:hover, .recent-item:hover {
+            background: var(--bg-hover);
+            border-color: var(--accent);
             transform: translateY(-2px);
         }
 
-        .continue-item .continue-title {
+        .continue-title, .recent-title {
             font-weight: 600;
-            color: #fff;
-            font-size: 15px;
+            color: var(--text);
+            font-size: 14px;
+            padding-right: 24px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
-        .continue-item .continue-meta {
+        .continue-meta, .recent-meta {
             display: flex;
             justify-content: space-between;
             align-items: center;
             font-size: 12px;
-            color: #888;
+            color: var(--text-muted);
+            gap: 6px;
         }
 
-        .continue-item .continue-progress-bar {
+        .continue-progress-bar {
             width: 100%;
             height: 3px;
-            background: #333;
+            background: var(--progress-bg);
             border-radius: 2px;
             margin-top: 8px;
             overflow: hidden;
         }
 
-        .continue-item .continue-progress-fill {
+        .continue-progress-fill {
             height: 100%;
-            background: #e50914;
+            background: var(--accent);
             border-radius: 2px;
             transition: width 0.3s ease;
         }
 
-        .continue-item .continue-remove {
+        .remove-btn {
             background: none;
             border: none;
-            color: #555;
+            color: var(--text-faint);
             cursor: pointer;
             font-size: 14px;
             padding: 2px 6px;
             border-radius: 4px;
-            transition: all 0.2s ease;
+            transition: all var(--transition);
             position: absolute;
             top: 8px;
             right: 8px;
+            line-height: 1;
         }
 
-        .continue-item .continue-remove:hover {
+        .remove-btn:hover {
             color: #ff6b6b;
             background: rgba(255, 0, 0, 0.1);
         }
 
-        /* Recent Shows */
-        .recent-shows {
-            margin-bottom: 30px;
-        }
-
-        .recent-shows h2 {
-            font-size: 20px;
-            font-weight: 600;
-            color: #ddd;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .recent-list {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 12px;
-        }
-
-        .recent-item {
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 10px;
-            padding: 16px 18px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        .recent-item:hover {
-            background: rgba(255, 255, 255, 0.12);
-            border-color: rgba(229, 9, 20, 0.4);
-            transform: translateY(-2px);
-        }
-
-        .recent-item .recent-title {
-            font-weight: 600;
-            color: #fff;
-            font-size: 15px;
-        }
-
-        .recent-item .recent-meta {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 12px;
-            color: #888;
-        }
-
-        .recent-item .recent-progress {
-            color: #e50914;
+        .recent-progress {
+            color: var(--accent);
             font-weight: 500;
-        }
-
-        .recent-item .recent-remove {
-            background: none;
-            border: none;
-            color: #555;
-            cursor: pointer;
-            font-size: 14px;
-            padding: 2px 6px;
-            border-radius: 4px;
-            transition: all 0.2s ease;
-        }
-
-        .recent-item .recent-remove:hover {
-            color: #ff6b6b;
-            background: rgba(255, 0, 0, 0.1);
         }
 
         /* Quick Examples */
         .quick-examples h3 {
-            font-size: 14px;
-            color: #666;
-            font-weight: 500;
+            font-size: 12px;
+            color: var(--text-dim);
+            font-weight: 600;
             margin-bottom: 12px;
             letter-spacing: 0.5px;
             text-transform: uppercase;
@@ -335,37 +412,37 @@
 
         .example-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
             gap: 10px;
         }
 
         .example-card {
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(255, 255, 255, 0.06);
-            border-radius: 8px;
-            padding: 12px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xs);
+            padding: 12px 14px;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all var(--transition);
             display: flex;
             flex-direction: column;
+            gap: 2px;
         }
 
         .example-card:hover {
-            background: rgba(255, 255, 255, 0.08);
-            border-color: rgba(229, 9, 20, 0.3);
+            background: var(--bg-hover);
+            border-color: var(--accent);
             transform: translateY(-2px);
         }
 
-        .example-card .example-title {
-            font-size: 14px;
+        .example-title {
+            font-size: 13px;
             font-weight: 600;
-            color: #ddd;
+            color: var(--text);
         }
 
-        .example-card .example-id {
+        .example-id {
             font-size: 11px;
-            color: #666;
-            margin-top: 4px;
+            color: var(--text-dim);
         }
 
         /* ============================================ */
@@ -378,40 +455,38 @@
             margin: 0 auto;
         }
 
-        #player-screen.active {
-            display: block !important;
-        }
+        #player-screen.active { display: block !important; }
 
         #app {
             width: 100%;
-            background: #141414;
-            border-radius: 12px;
+            background: var(--bg-elevated);
+            border-radius: var(--radius);
             overflow: hidden;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9);
+            box-shadow: var(--shadow);
             position: relative;
         }
 
-        /* Back Button */
         .back-btn {
             position: absolute;
-            top: 20px;
-            left: 20px;
+            top: 16px;
+            left: 16px;
             z-index: 100;
             background: rgba(0, 0, 0, 0.7);
             backdrop-filter: blur(8px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--border);
             color: #fff;
-            padding: 8px 16px;
-            border-radius: 8px;
-            font-size: 14px;
+            padding: 8px 14px;
+            border-radius: var(--radius-xs);
+            font-size: 13px;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all var(--transition);
             font-weight: 500;
         }
 
         .back-btn:hover {
-            background: rgba(229, 9, 20, 0.8);
-            transform: scale(1.05);
+            background: var(--accent);
+            border-color: var(--accent);
+            transform: translateY(-1px);
         }
 
         /* Player Wrapper */
@@ -423,15 +498,19 @@
             overflow: hidden;
         }
 
+        /* Fallback for old browsers */
+        @supports not (aspect-ratio: 16 / 9) {
+            #player-wrapper { padding-top: 56.25%; height: 0; }
+        }
+
         #player {
+            position: absolute;
+            inset: 0;
             width: 100%;
             height: 100%;
             border: none;
-            pointer-events: none;
-        }
-
-        #player-wrapper:hover #player {
             pointer-events: auto;
+            background: #000;
         }
 
         /* Loading Indicator */
@@ -442,139 +521,129 @@
             transform: translate(-50%, -50%);
             z-index: 5;
             color: #fff;
-            font-size: 18px;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 20px 30px;
-            border-radius: 8px;
+            font-size: 15px;
+            background: rgba(0, 0, 0, 0.75);
+            padding: 16px 24px;
+            border-radius: var(--radius-sm);
             display: none;
             align-items: center;
             gap: 12px;
+            backdrop-filter: blur(8px);
         }
 
-        #loading-indicator.active {
-            display: flex;
-        }
+        #loading-indicator.active { display: flex; }
 
         .spinner {
             display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255, 255, 255, 0.3);
+            width: 18px;
+            height: 18px;
+            border: 3px solid rgba(255, 255, 255, 0.25);
             border-radius: 50%;
             border-top-color: #fff;
-            animation: spin 1s ease-in-out infinite;
+            animation: spin 0.8s linear infinite;
         }
 
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
         /* Episode Info */
         #episode-info {
             position: absolute;
-            bottom: 80px;
-            left: 30px;
+            bottom: 20px;
+            left: 20px;
             z-index: 10;
             pointer-events: none;
             text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
             opacity: 0;
-            transition: opacity 0.5s ease;
-            background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%);
-            padding: 20px 30px 30px 30px;
-            border-radius: 8px;
-            max-width: 60%;
+            transition: opacity 0.4s ease;
+            background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%);
+            padding: 20px 24px 24px 24px;
+            border-radius: var(--radius-sm);
+            max-width: 65%;
         }
 
-        #player-wrapper:hover #episode-info {
+        #player-wrapper:hover #episode-info,
+        #player-wrapper.controls-shown #episode-info {
             opacity: 1;
         }
 
         #show-title {
-            font-size: 24px;
+            font-size: 22px;
             font-weight: 700;
             display: block;
             color: #fff;
-            margin-bottom: 4px;
-            letter-spacing: 0.5px;
+            margin-bottom: 2px;
+            letter-spacing: 0.3px;
         }
 
         #episode-label {
-            font-size: 16px;
+            font-size: 15px;
             color: #ccc;
             display: block;
-            font-weight: 400;
         }
 
         #episode-title {
-            font-size: 14px;
+            font-size: 13px;
             color: #aaa;
             display: block;
             margin-top: 2px;
-            font-weight: 300;
         }
 
-        /* VidAPI Attribution */
         #vidapi-attribution {
             position: absolute;
-            bottom: 15px;
-            right: 20px;
+            bottom: 12px;
+            right: 16px;
             z-index: 8;
-            font-size: 11px;
+            font-size: 10px;
             color: rgba(255, 255, 255, 0.3);
             pointer-events: none;
             text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
             letter-spacing: 0.5px;
         }
 
-        /* Skip Intro Button */
+        /* Skip Intro */
         .skip-button {
             position: absolute;
-            bottom: 100px;
-            right: 30px;
+            bottom: 90px;
+            right: 24px;
             z-index: 20;
-            transition: opacity 0.3s ease;
+            transition: opacity 0.3s ease, transform 0.3s ease;
         }
 
         .skip-button button {
             background: rgba(255, 255, 255, 0.15);
             backdrop-filter: blur(8px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.25);
             color: #fff;
-            padding: 10px 24px;
-            border-radius: 8px;
-            font-size: 15px;
+            padding: 10px 22px;
+            border-radius: var(--radius-sm);
+            font-size: 14px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s ease;
-            letter-spacing: 0.3px;
+            transition: all var(--transition);
         }
 
         .skip-button button:hover {
-            background: rgba(255, 255, 255, 0.25);
-            transform: scale(1.05);
+            background: rgba(255, 255, 255, 0.28);
+            transform: scale(1.04);
         }
 
         .skip-button.hidden {
             opacity: 0;
             pointer-events: none;
+            transform: translateY(8px);
         }
 
         /* Next Episode Overlay */
         #next-episode-overlay {
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            inset: 0;
             z-index: 30;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: rgba(0, 0, 0, 0.7);
+            background: rgba(0, 0, 0, 0.75);
             backdrop-filter: blur(4px);
-            transition: opacity 0.5s ease;
+            transition: opacity 0.4s ease;
         }
 
         #next-episode-overlay.hidden {
@@ -584,87 +653,52 @@
 
         .next-episode-content {
             text-align: center;
-            padding: 40px;
-            background: rgba(20, 20, 20, 0.9);
-            border-radius: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            min-width: 300px;
+            padding: 36px 44px;
+            background: rgba(20, 20, 20, 0.95);
+            border-radius: var(--radius);
+            border: 1px solid var(--border-strong);
+            min-width: 280px;
+            animation: fadeInUp 0.3s ease;
         }
 
         .next-episode-content h3 {
-            font-size: 20px;
+            font-size: 16px;
             font-weight: 400;
-            color: #aaa;
-            margin-bottom: 16px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         #next-countdown {
-            font-size: 64px;
+            font-size: 56px;
             font-weight: 700;
             color: #fff;
-            margin: 20px 0;
+            margin: 12px 0 20px;
+            line-height: 1;
         }
 
         #next-now-btn {
-            background: #e50914;
+            background: var(--accent);
             color: #fff;
             border: none;
-            padding: 12px 40px;
-            border-radius: 6px;
-            font-size: 16px;
+            padding: 12px 36px;
+            border-radius: var(--radius-xs);
+            font-size: 15px;
             font-weight: 600;
             cursor: pointer;
-            transition: background 0.2s ease;
-            margin-top: 10px;
+            transition: all var(--transition);
         }
 
-        #next-now-btn:hover {
-            background: #f40612;
-        }
-
-        /* Progress Thumbnail */
-        #progress-thumbnail {
-            position: absolute;
-            bottom: 20px;
-            display: none;
-            background: #000;
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            border-radius: 4px;
-            overflow: hidden;
-            width: 160px;
-            height: 90px;
-            pointer-events: none;
-            z-index: 50;
-        }
-
-        #progress-thumbnail.show {
-            display: block;
-        }
-
-        #progress-thumbnail img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        #progress-thumbnail .thumb-time {
-            position: absolute;
-            bottom: 4px;
-            right: 6px;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 11px;
-            color: #fff;
-        }
+        #next-now-btn:hover { background: var(--accent-hover); transform: translateY(-1px); }
 
         /* ============================================ */
         /* CONTROLS BAR */
         /* ============================================ */
         #controls-bar {
-            padding: 12px 24px 16px;
-            background: #1a1a1a;
-            border-top: 1px solid #2a2a2a;
+            padding: 12px 20px 14px;
+            background: var(--bg-panel);
+            border-top: 1px solid var(--border);
             transition: opacity 0.3s ease, transform 0.3s ease;
             transform: translateY(0);
             opacity: 1;
@@ -676,297 +710,211 @@
             pointer-events: none;
         }
 
-        /* Fullscreen specific styles */
-        #player-screen:fullscreen #controls-bar {
+        /* Fullscreen styles — target #app:fullscreen */
+        #app:fullscreen { border-radius: 0; max-width: 100%; }
+        #app:fullscreen #player-wrapper { border-radius: 0; }
+        #app:fullscreen #controls-bar {
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
-            background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%);
+            background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 70%, transparent 100%);
             border-top: none;
-            padding: 20px 40px 30px;
+            padding: 20px 32px 28px;
+            z-index: 100;
         }
-
-        #player-screen:fullscreen #app {
-            border-radius: 0;
-            max-width: 100%;
-        }
-
-        #player-screen:fullscreen #player-wrapper {
-            border-radius: 0;
-        }
-
-        #player-screen:fullscreen .back-btn {
-            position: fixed;
-            top: 30px;
-            left: 30px;
-            z-index: 200;
-        }
-
-        #player-screen:fullscreen #episode-info {
-            bottom: 120px;
-            left: 40px;
-            font-size: 1.2em;
-        }
-
-        #player-screen:fullscreen #shortcuts-help {
-            display: none;
-        }
-
-        #player-screen:fullscreen #controls-bar.hidden {
+        #app:fullscreen .back-btn { position: fixed; top: 24px; left: 24px; z-index: 200; }
+        #app:fullscreen #episode-info { bottom: 120px; left: 32px; }
+        #app:fullscreen #show-title { font-size: 26px; }
+        #app:fullscreen #episode-label { font-size: 17px; }
+        #app:fullscreen #episode-title { font-size: 15px; }
+        #app:fullscreen .skip-button { bottom: 140px; right: 32px; }
+        #app:fullscreen #progress-bar { height: 6px; }
+        #app:fullscreen #progress-bar:hover { height: 10px; }
+        #app:fullscreen .controls-row button { font-size: 20px; padding: 8px 10px; }
+        #app:fullscreen #play-pause-btn { font-size: 26px; width: 44px; }
+        #app:fullscreen #shortcuts-help { display: none; }
+        #app:fullscreen #controls-bar.hidden {
             opacity: 0;
             transform: translateY(100%);
             pointer-events: none;
         }
 
-        #player-screen:fullscreen #controls-bar:not(.hidden) {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        #player-screen:fullscreen #episode-info {
-            opacity: 1 !important;
-            background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 100%);
-            padding: 30px 40px 40px 40px;
-        }
-
-        #player-screen:fullscreen #show-title {
-            font-size: 28px;
-        }
-
-        #player-screen:fullscreen #episode-label {
-            font-size: 18px;
-        }
-
-        #player-screen:fullscreen #episode-title {
-            font-size: 16px;
-        }
-
-        #player-screen:fullscreen .skip-button {
-            bottom: 140px;
-            right: 40px;
-        }
-
-        #player-screen:fullscreen #progress-bar {
-            height: 6px;
-        }
-
-        #player-screen:fullscreen #progress-bar:hover {
-            height: 10px;
-        }
-
-        #player-screen:fullscreen #time-display {
-            font-size: 14px;
-        }
-
-        #player-screen:fullscreen .controls-row button {
-            font-size: 22px;
-            padding: 8px 12px;
-        }
-
-        #player-screen:fullscreen #play-pause-btn {
-            font-size: 28px;
-            width: 48px;
-        }
-
-        #player-screen:fullscreen #episode-selector select {
-            font-size: 15px;
-            padding: 6px 12px;
-        }
-
-        #player-screen:fullscreen #episode-counter {
-            font-size: 15px;
-        }
-
-        #player-screen:fullscreen.hide-cursor {
-            cursor: none;
-        }
-
-        #player-screen:fullscreen.hide-cursor #controls-bar {
+        /* Fullscreen cursor hide */
+        #app:fullscreen.hide-cursor { cursor: none; }
+        #app:fullscreen.hide-cursor #controls-bar {
             opacity: 0 !important;
             transform: translateY(100%) !important;
             pointer-events: none !important;
         }
+        #app:fullscreen.hide-cursor #episode-info { opacity: 0 !important; }
 
-        #player-screen:fullscreen.hide-cursor #episode-info {
-            opacity: 0 !important;
-            transition: opacity 0.5s ease;
-        }
-
-        /* Keyboard Shortcuts Popup */
+        /* ============================================ */
+        /* KEYBOARD SHORTCUTS POPUP */
+        /* ============================================ */
         #shortcuts-popup {
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            inset: 0;
             z-index: 999;
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.85);
             backdrop-filter: blur(8px);
             display: none;
             align-items: center;
             justify-content: center;
+            padding: 20px;
         }
 
-        #shortcuts-popup.active {
-            display: flex;
-        }
+        #shortcuts-popup.active { display: flex; }
 
         .shortcuts-content {
-            background: #1a1a1a;
-            padding: 40px 50px;
-            border-radius: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            max-width: 500px;
-            width: 90%;
+            background: var(--bg-panel);
+            padding: 32px 40px;
+            border-radius: var(--radius);
+            border: 1px solid var(--border-strong);
+            max-width: 480px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: fadeInUp 0.25s ease;
         }
 
         .shortcuts-content h2 {
-            font-size: 24px;
-            margin-bottom: 20px;
-            color: #fff;
+            font-size: 20px;
+            margin-bottom: 18px;
+            color: var(--text);
         }
 
-        .shortcuts-content .shortcut-row {
+        .shortcut-row {
             display: flex;
             justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            color: #ccc;
-            font-size: 14px;
+            align-items: center;
+            padding: 9px 0;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-muted);
+            font-size: 13px;
         }
 
-        .shortcuts-content .shortcut-row:last-child {
-            border-bottom: none;
-        }
+        .shortcut-row:last-of-type { border-bottom: none; }
 
-        .shortcuts-content .shortcut-key {
-            color: #e50914;
+        .shortcut-key {
+            color: var(--accent);
             font-weight: 600;
-            font-family: monospace;
-            background: rgba(255, 255, 255, 0.05);
+            font-family: ui-monospace, monospace;
+            background: var(--bg-hover);
             padding: 2px 10px;
             border-radius: 4px;
+            font-size: 12px;
         }
 
-        .shortcuts-content .close-shortcuts {
+        .close-shortcuts {
             margin-top: 20px;
-            padding: 10px 30px;
-            background: #e50914;
+            padding: 11px 24px;
+            background: var(--accent);
             border: none;
-            border-radius: 6px;
+            border-radius: var(--radius-xs);
             color: #fff;
             font-size: 14px;
             font-weight: 600;
             cursor: pointer;
             width: 100%;
+            transition: background var(--transition);
         }
 
-        .shortcuts-content .close-shortcuts:hover {
-            background: #f40612;
-        }
+        .close-shortcuts:hover { background: var(--accent-hover); }
 
-        /* Episode/Season Selector */
+        /* ============================================ */
+        /* EPISODE / SEASON SELECTOR */
+        /* ============================================ */
         #episode-selector {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 4px 12px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            gap: 6px;
+            padding: 4px 10px;
+            background: var(--bg-hover);
+            border-radius: var(--radius-xs);
+            border: 1px solid var(--border);
         }
 
         #episode-selector select {
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: #fff;
-            padding: 4px 8px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 4px 6px;
             border-radius: 4px;
-            font-size: 13px;
+            font-size: 12px;
             cursor: pointer;
             outline: none;
-            min-width: 50px;
+            min-width: 46px;
         }
 
-        #episode-selector select:hover {
-            background: rgba(255, 255, 255, 0.15);
-        }
+        #episode-selector select:hover { background: var(--bg-hover); }
+        #episode-selector select option { background: var(--bg-panel); color: var(--text); }
 
-        #episode-selector select option {
-            background: #1a1a1a;
-            color: #fff;
-        }
-
-        #episode-selector .selector-label {
-            font-size: 12px;
-            color: #888;
+        .selector-label {
+            font-size: 11px;
+            color: var(--text-dim);
             font-weight: 600;
         }
 
         #go-to-episode-btn {
-            background: rgba(229, 9, 20, 0.6);
+            background: rgba(229, 9, 20, 0.7);
             color: #fff;
             border: none;
             padding: 4px 12px;
             border-radius: 4px;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all var(--transition);
         }
 
-        #go-to-episode-btn:hover {
-            background: rgba(229, 9, 20, 0.9);
-        }
+        #go-to-episode-btn:hover { background: var(--accent); }
 
-        /* Controls Row */
-        #progress-container {
-            margin-bottom: 10px;
-        }
+        /* ============================================ */
+        /* PROGRESS BAR */
+        /* ============================================ */
+        #progress-container { margin-bottom: 10px; }
 
         #progress-bar {
             position: relative;
             width: 100%;
             height: 4px;
-            background: #333;
+            background: var(--progress-bg);
             border-radius: 2px;
             cursor: pointer;
             transition: height 0.2s ease;
-            touch-action: none;
         }
 
-        #progress-bar:hover {
-            height: 6px;
+        #progress-bar:hover { height: 8px; }
+
+        #progress-fill, #progress-buffer {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            border-radius: 2px;
         }
 
         #progress-fill {
-            position: absolute;
-            left: 0;
-            top: 0;
-            height: 100%;
+            background: var(--accent);
             width: 0%;
-            background: #e50914;
-            border-radius: 2px;
             transition: width 0.1s linear;
+            z-index: 2;
         }
 
         #progress-buffer {
-            position: absolute;
-            left: 0;
-            top: 0;
-            height: 100%;
+            background: var(--progress-buffer);
             width: 0%;
-            background: #555;
-            border-radius: 2px;
+            z-index: 1;
         }
 
         #time-display {
             display: flex;
             justify-content: space-between;
-            font-size: 12px;
-            color: #888;
+            font-size: 11px;
+            color: var(--text-dim);
             margin-top: 4px;
+            font-variant-numeric: tabular-nums;
         }
 
         .controls-row {
@@ -977,517 +925,147 @@
             gap: 8px;
         }
 
-        .left-controls {
+        .left-controls, .right-controls {
             display: flex;
             align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .right-controls {
-            display: flex;
-            gap: 8px;
-            align-items: center;
+            gap: 6px;
             flex-wrap: wrap;
         }
 
         .controls-row button {
             background: none;
             border: none;
-            color: #ccc;
-            font-size: 18px;
+            color: var(--text-muted);
+            font-size: 17px;
             cursor: pointer;
-            padding: 4px 6px;
-            border-radius: 4px;
-            transition: all 0.2s ease;
+            padding: 5px 7px;
+            border-radius: 5px;
+            transition: all var(--transition);
             line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .controls-row button:hover {
-            color: #fff;
-            background: rgba(255, 255, 255, 0.1);
+            color: var(--text);
+            background: var(--bg-hover);
         }
 
-        #play-pause-btn {
-            font-size: 20px;
-            width: 34px;
-        }
+        #play-pause-btn { font-size: 19px; width: 32px; }
 
         #episode-counter {
-            font-size: 12px;
-            color: #888;
-            font-weight: 500;
-            min-width: 60px;
-        }
-
-        /* Speed & Quality Selectors */
-        #speed-selector {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            color: #ccc;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            cursor: pointer;
-            outline: none;
-        }
-
-        #speed-selector option {
-            background: #1a1a1a;
-            color: #fff;
-        }
-
-        #quality-selector {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            color: #ccc;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            cursor: pointer;
-            outline: none;
-        }
-
-        #quality-selector option {
-            background: #1a1a1a;
-            color: #fff;
-        }
-
-        /* Server Selector */
-        #server-selector {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            color: #ccc;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            cursor: pointer;
-            outline: none;
-            max-width: 140px;
-        }
-
-        #server-selector option {
-            background: #1a1a1a;
-            color: #fff;
-        }
-
-        #server-selector:hover {
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        #server-selector:focus {
-            border-color: rgba(229, 9, 20, 0.5);
-        }
-
-        /* Keyboard Shortcuts Help */
-        #shortcuts-help {
-            padding: 6px 24px 10px;
             font-size: 11px;
-            color: #444;
-            text-align: center;
-            border-top: 1px solid #222;
-            background: #111;
+            color: var(--text-dim);
+            font-weight: 600;
+            min-width: 56px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        #speed-selector, #quality-selector, #volume-slider {
+            background: var(--bg-hover);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 4px 8px;
+            border-radius: 5px;
+            font-size: 11px;
+            cursor: pointer;
+            outline: none;
+        }
+
+        #volume-slider {
+            width: 70px;
+            accent-color: var(--accent);
             cursor: pointer;
         }
 
-        #shortcuts-help:hover {
-            color: #888;
+        #speed-selector option, #quality-selector option {
+            background: var(--bg-panel);
+            color: var(--text);
         }
+
+        /* Shortcuts help */
+        #shortcuts-help {
+            padding: 6px 20px 8px;
+            font-size: 11px;
+            color: var(--text-faint);
+            text-align: center;
+            border-top: 1px solid var(--border);
+            background: var(--bg-elevated);
+            cursor: pointer;
+            transition: color var(--transition);
+        }
+
+        #shortcuts-help:hover { color: var(--text-muted); }
 
         #shortcuts-help kbd {
-            background: #2a2a2a;
+            background: var(--bg-hover);
             padding: 1px 6px;
             border-radius: 3px;
             font-size: 10px;
-            color: #888;
-            border: 1px solid #333;
+            color: var(--text-muted);
+            border: 1px solid var(--border);
             font-family: inherit;
-        }
-
-        /* Server Notification */
-        .server-notification {
-            position: fixed;
-            bottom: 100px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0,0,0,0.85);
-            color: #fff;
-            padding: 12px 24px;
-            border-radius: 8px;
-            z-index: 1000;
-            font-size: 14px;
-            font-weight: 500;
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(255,255,255,0.1);
-            animation: slideUp 0.3s ease;
-            transition: opacity 0.3s ease;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-        }
-
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateX(-50%) translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(-50%) translateY(0);
-            }
-        }
-
-        /* ============================================ */
-        /* THEME TOGGLE */
-        /* ============================================ */
-        body.light-theme {
-            background: #f0f0f0;
-        }
-
-        body.light-theme #home-screen {
-            background: radial-gradient(ellipse at center, #e8e8e8 0%, #f5f5f5 100%);
-        }
-
-        body.light-theme .home-header h1 {
-            -webkit-text-fill-color: #e50914;
-        }
-
-        body.light-theme .home-header p {
-            color: #666;
-        }
-
-        body.light-theme .search-section {
-            background: rgba(255, 255, 255, 0.9);
-            border-color: rgba(0, 0, 0, 0.1);
-        }
-
-        body.light-theme .search-box input {
-            background: rgba(0, 0, 0, 0.05);
-            border-color: rgba(0, 0, 0, 0.1);
-            color: #333;
-        }
-
-        body.light-theme .search-box input::placeholder {
-            color: #999;
-        }
-
-        body.light-theme .recent-item,
-        body.light-theme .continue-item,
-        body.light-theme .example-card {
-            background: rgba(255, 255, 255, 0.8);
-            border-color: rgba(0, 0, 0, 0.08);
-        }
-
-        body.light-theme .recent-item .recent-title,
-        body.light-theme .continue-item .continue-title {
-            color: #333;
-        }
-
-        body.light-theme #app {
-            background: #f5f5f5;
-        }
-
-        body.light-theme #controls-bar {
-            background: #e8e8e8;
-            border-top-color: #ddd;
-        }
-
-        body.light-theme #shortcuts-help {
-            background: #e8e8e8;
-            border-top-color: #ddd;
-            color: #666;
-        }
-
-        body.light-theme .controls-row button {
-            color: #666;
-        }
-
-        body.light-theme .controls-row button:hover {
-            color: #333;
-            background: rgba(0, 0, 0, 0.05);
-        }
-
-        body.light-theme #episode-selector {
-            background: rgba(0, 0, 0, 0.05);
-            border-color: rgba(0, 0, 0, 0.08);
-        }
-
-        body.light-theme #episode-selector select {
-            background: rgba(0, 0, 0, 0.05);
-            border-color: rgba(0, 0, 0, 0.1);
-            color: #333;
-        }
-
-        body.light-theme #episode-selector select option {
-            background: #f5f5f5;
-            color: #333;
-        }
-
-        body.light-theme #speed-selector,
-        body.light-theme #quality-selector,
-        body.light-theme #server-selector {
-            background: rgba(0, 0, 0, 0.05);
-            border-color: rgba(0, 0, 0, 0.08);
-            color: #666;
-        }
-
-        body.light-theme #speed-selector option,
-        body.light-theme #quality-selector option,
-        body.light-theme #server-selector option {
-            background: #f5f5f5;
-            color: #333;
-        }
-
-        body.light-theme #time-display {
-            color: #666;
-        }
-
-        body.light-theme #progress-bar {
-            background: #ddd;
-        }
-
-        body.light-theme #progress-buffer {
-            background: #bbb;
-        }
-
-        body.light-theme #show-title {
-            color: #333;
-        }
-
-        body.light-theme #episode-label {
-            color: #666;
-        }
-
-        body.light-theme #episode-title {
-            color: #888;
-        }
-
-        body.light-theme .shortcuts-content {
-            background: #f5f5f5;
-            border-color: rgba(0, 0, 0, 0.1);
-        }
-
-        body.light-theme .shortcuts-content h2 {
-            color: #333;
-        }
-
-        body.light-theme .shortcuts-content .shortcut-row {
-            color: #666;
-            border-bottom-color: rgba(0, 0, 0, 0.05);
-        }
-
-        body.light-theme #vidapi-attribution {
-            color: rgba(0, 0, 0, 0.3);
-        }
-
-        body.light-theme .back-btn {
-            background: rgba(255, 255, 255, 0.8);
-            color: #333;
-            border-color: rgba(0, 0, 0, 0.1);
-        }
-
-        body.light-theme .back-btn:hover {
-            background: rgba(229, 9, 20, 0.9);
-            color: #fff;
         }
 
         /* ============================================ */
         /* RESPONSIVE */
         /* ============================================ */
         @media (max-width: 768px) {
-            body {
-                padding: 10px;
-            }
+            #home-screen { padding: 20px 14px; }
+            .home-header h1 { font-size: 30px; }
+            .home-header p { font-size: 14px; }
+            .home-top-controls { position: static; justify-content: center; margin-top: 12px; }
 
-            .home-header h1 {
-                font-size: 32px;
-            }
+            .search-section { padding: 18px; }
+            .search-box { flex-direction: column; }
+            .search-box button { width: 100%; }
 
-            .search-section {
-                padding: 20px;
-            }
+            .continue-list, .recent-list { grid-template-columns: 1fr; }
+            .example-grid { grid-template-columns: 1fr 1fr; }
+            .search-results { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
 
-            .search-box {
-                flex-direction: column;
-            }
+            #player-screen { padding: 8px; }
+            #controls-bar { padding: 10px 12px 12px; }
+            .controls-row button { font-size: 15px; padding: 4px 5px; }
+            #play-pause-btn { font-size: 17px; width: 28px; }
 
-            .search-box button {
-                width: 100%;
-                justify-content: center;
-            }
+            #episode-info { bottom: 16px; left: 12px; padding: 12px 16px 16px; max-width: 85%; }
+            #show-title { font-size: 16px; }
+            #episode-label { font-size: 12px; }
+            #episode-title { font-size: 11px; }
 
-            .recent-list,
-            .continue-list {
-                grid-template-columns: 1fr;
-            }
+            .skip-button { bottom: 70px; right: 12px; }
+            .skip-button button { padding: 7px 14px; font-size: 12px; }
 
-            .example-grid {
-                grid-template-columns: 1fr 1fr;
-            }
+            #shortcuts-help { display: none; }
+            .back-btn { top: 10px; left: 10px; padding: 6px 10px; font-size: 11px; }
 
-            #player-screen {
-                padding: 10px;
-            }
+            #episode-selector { padding: 2px 6px; gap: 3px; }
+            #episode-selector select { font-size: 10px; padding: 2px 3px; min-width: 34px; }
+            .selector-label { font-size: 10px; }
+            #go-to-episode-btn { font-size: 10px; padding: 2px 7px; }
 
-            #controls-bar {
-                padding: 10px 12px 12px;
-            }
+            #vidapi-attribution { font-size: 9px; bottom: 8px; right: 8px; }
+            #speed-selector, #quality-selector { font-size: 10px; padding: 2px 4px; }
+            #volume-slider { width: 50px; }
 
-            .controls-row button {
-                font-size: 15px;
-                padding: 3px 4px;
-            }
-
-            #episode-info {
-                bottom: 60px;
-                left: 15px;
-                padding: 15px 20px 20px 20px;
-                max-width: 80%;
-            }
-
-            #show-title {
-                font-size: 18px;
-            }
-
-            #episode-label {
-                font-size: 13px;
-            }
-
-            #episode-title {
-                font-size: 12px;
-            }
-
-            .skip-button {
-                bottom: 70px;
-                right: 15px;
-            }
-
-            .skip-button button {
-                padding: 6px 14px;
-                font-size: 12px;
-            }
-
-            #shortcuts-help {
-                display: none;
-            }
-
-            .back-btn {
-                top: 10px;
-                left: 10px;
-                padding: 6px 12px;
-                font-size: 11px;
-            }
-
-            #episode-selector {
-                padding: 2px 8px;
-                gap: 4px;
-            }
-
-            #episode-selector select {
-                font-size: 11px;
-                padding: 2px 4px;
-                min-width: 36px;
-            }
-
-            #episode-selector .selector-label {
-                font-size: 10px;
-            }
-
-            #go-to-episode-btn {
-                font-size: 10px;
-                padding: 2px 8px;
-            }
-
-            #vidapi-attribution {
-                font-size: 9px;
-                bottom: 10px;
-                right: 12px;
-            }
-
-            #speed-selector,
-            #quality-selector,
-            #server-selector {
-                font-size: 10px;
-                padding: 2px 4px;
-                max-width: 80px;
-            }
-
-            .shortcuts-content {
-                padding: 20px;
-            }
-
-            #player-screen:fullscreen #episode-info {
-                bottom: 100px;
-                left: 20px;
-                padding: 20px;
-            }
-
-            #player-screen:fullscreen #show-title {
-                font-size: 20px;
-            }
-
-            #player-screen:fullscreen #episode-label {
-                font-size: 14px;
-            }
-
-            #player-screen:fullscreen .skip-button {
-                bottom: 110px;
-                right: 20px;
-            }
-
-            #player-screen:fullscreen #controls-bar {
-                padding: 12px 20px 20px;
-            }
+            .next-episode-content { padding: 24px 28px; }
+            #next-countdown { font-size: 44px; }
         }
 
         @media (max-width: 480px) {
-            .example-grid {
-                grid-template-columns: 1fr;
-            }
+            .example-grid { grid-template-columns: 1fr; }
+            .controls-row { flex-direction: column; align-items: stretch; }
+            .left-controls, .right-controls { justify-content: center; }
+            #episode-selector { justify-content: center; }
+            #episode-info { max-width: 92%; }
+        }
 
-            .controls-row {
-                flex-direction: column;
-                align-items: stretch;
-                gap: 6px;
-            }
-
-            .left-controls {
-                justify-content: center;
-            }
-
-            .right-controls {
-                justify-content: center;
-            }
-
-            #episode-selector {
-                justify-content: center;
-            }
-
-            #server-selector {
-                max-width: 100px;
-            }
-
-            #player-screen:fullscreen #episode-info {
-                bottom: 80px;
-                left: 10px;
-                padding: 15px;
-                max-width: 90%;
-            }
-
-            #player-screen:fullscreen #show-title {
-                font-size: 16px;
-            }
-
-            #player-screen:fullscreen #episode-label {
-                font-size: 12px;
-            }
-
-            #player-screen:fullscreen .controls-row button {
-                font-size: 16px;
-                padding: 4px 6px;
-            }
-
-            #player-screen:fullscreen #play-pause-btn {
-                font-size: 20px;
-                width: 36px;
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
             }
         }
     </style>
@@ -1500,6 +1078,10 @@
     <div id="home-screen" class="active">
         <div class="home-container">
             <div class="home-header">
+                <div class="home-top-controls">
+                    <button class="icon-btn" id="home-theme-btn" title="Toggle theme (T)" aria-label="Toggle theme">🌓</button>
+                    <button class="icon-btn" id="clear-data-btn" title="Clear all saved data" aria-label="Clear all data">🗑</button>
+                </div>
                 <h1>🎬 Series Player</h1>
                 <p>Watch any TV show with auto-play, resume, and skip features</p>
             </div>
@@ -1510,18 +1092,20 @@
                     <input
                         type="text"
                         id="search-input"
-                        placeholder="Enter TMDB ID (e.g., 3796) or IMDB ID (e.g., tt0944947)"
-                        autofocus
+                        placeholder="Search by name, or paste TMDB/IMDB ID (e.g., 1399 or tt0944947)"
+                        autocomplete="off"
+                        spellcheck="false"
                     />
                     <button id="search-btn">▶ Watch</button>
                 </div>
                 <div class="search-hint">
-                    <small>Try: 3796 (Game of Thrones) or tt0944947</small>
+                    <small>Try: "Breaking Bad", "Game of Thrones", 1399, or tt0903747</small>
                 </div>
-                <div id="search-error" class="error-message hidden"></div>
+                <div id="search-error" class="error-message hidden" role="alert"></div>
+                <div id="search-results" class="search-results hidden"></div>
             </div>
 
-            <!-- Continue Watching Row -->
+            <!-- Continue Watching -->
             <div id="continue-watching" class="hidden">
                 <h2>▶ Continue Watching</h2>
                 <div id="continue-list" class="continue-list"></div>
@@ -1537,17 +1121,13 @@
             <div class="quick-examples">
                 <h3>Quick Examples</h3>
                 <div class="example-grid">
-                    <div class="example-card" data-id="3796">
+                    <div class="example-card" data-id="1399">
                         <span class="example-title">Game of Thrones</span>
-                        <span class="example-id">TMDB: 3796</span>
+                        <span class="example-id">TMDB: 1399</span>
                     </div>
                     <div class="example-card" data-id="tt13159924">
                         <span class="example-title">House of the Dragon</span>
                         <span class="example-id">IMDB: tt13159924</span>
-                    </div>
-                    <div class="example-card" data-id="1399">
-                        <span class="example-title">Game of Thrones</span>
-                        <span class="example-id">TMDB: 1399</span>
                     </div>
                     <div class="example-card" data-id="tt0903747">
                         <span class="example-title">Breaking Bad</span>
@@ -1561,6 +1141,10 @@
                         <span class="example-title">House M.D.</span>
                         <span class="example-id">IMDB: tt0412142</span>
                     </div>
+                    <div class="example-card" data-id="tt0108778">
+                        <span class="example-title">Friends</span>
+                        <span class="example-id">IMDB: tt0108778</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1571,57 +1155,48 @@
     <!-- ============================================ -->
     <div id="player-screen" class="hidden">
         <div id="app">
-            <!-- Back Button -->
-            <button id="back-btn" class="back-btn" title="Back to home">← Home</button>
+            <button id="back-btn" class="back-btn" title="Back to home (Esc)">← Home</button>
 
             <div id="player-wrapper">
-                <!-- Loading indicator -->
-                <div id="loading-indicator">
+                <div id="loading-indicator" role="status">
                     <span class="spinner"></span>
                     Loading episode...
                 </div>
 
-                <iframe id="player"
-                        allow="autoplay; fullscreen; picture-in-picture"
-                        allowfullscreen
-                        frameborder="0">
-                </iframe>
+                <iframe id="player"  
+        allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+        allowfullscreen
+        referrerpolicy="origin"
+        frameborder="0">
+</iframe>
 
-                <!-- Overlay UI Elements -->
                 <div id="episode-info">
                     <span id="show-title"></span>
                     <span id="episode-label"></span>
                     <span id="episode-title"></span>
                 </div>
 
-                <!-- VidAPI Attribution -->
                 <div id="vidapi-attribution">Powered by VidAPI</div>
 
                 <div id="skip-intro" class="skip-button hidden">
-                    <button>⏭ Skip Intro</button>
+                    <button type="button">⏭ Skip Intro</button>
                 </div>
 
                 <div id="next-episode-overlay" class="hidden">
                     <div class="next-episode-content">
                         <h3>Next Episode Starting In</h3>
                         <div id="next-countdown">5</div>
-                        <button id="next-now-btn">Play Now</button>
+                        <button id="next-now-btn" type="button">Play Now</button>
                     </div>
-                </div>
-
-                <!-- Progress Thumbnail -->
-                <div id="progress-thumbnail">
-                    <img src="" alt="Preview" />
-                    <span class="thumb-time">0:00</span>
                 </div>
             </div>
 
             <!-- Controls Bar -->
             <div id="controls-bar">
                 <div id="progress-container">
-                    <div id="progress-bar">
-                        <div id="progress-fill"></div>
+                    <div id="progress-bar" role="progressbar" aria-label="Playback progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
                         <div id="progress-buffer"></div>
+                        <div id="progress-fill"></div>
                     </div>
                     <div id="time-display">
                         <span id="current-time">0:00</span>
@@ -1631,28 +1206,25 @@
 
                 <div class="controls-row">
                     <div class="left-controls">
-                        <button id="play-pause-btn" title="Play/Pause (Space)">⏸</button>
-                        <button id="prev-episode-btn" title="Previous Episode">⏮</button>
-                        <button id="next-episode-btn" title="Next Episode (N)">⏭</button>
-                        
-                        <!-- Episode/Season Selector -->
+                        <button id="play-pause-btn" title="Play/Pause (Space)" aria-label="Play or pause">⏸</button>
+                        <button id="prev-episode-btn" title="Previous Episode (P)" aria-label="Previous episode">⏮</button>
+                        <button id="next-episode-btn" title="Next Episode (N)" aria-label="Next episode">⏭</button>
+
                         <div id="episode-selector">
                             <span class="selector-label">S</span>
-                            <select id="season-select">
-                                <option value="1">1</option>
-                            </select>
+                            <select id="season-select" aria-label="Season"></select>
                             <span class="selector-label">E</span>
-                            <select id="episode-select">
-                                <option value="1">1</option>
-                            </select>
-                            <button id="go-to-episode-btn">Go</button>
+                            <select id="episode-select" aria-label="Episode"></select>
+                            <button id="go-to-episode-btn" title="Load selected episode">Go</button>
                         </div>
-                        
+
                         <span id="episode-counter">S01E01</span>
                     </div>
 
                     <div class="right-controls">
-                        <select id="speed-selector" title="Playback Speed">
+                        <input type="range" id="volume-slider" min="0" max="1" step="0.05" value="1" title="Volume" aria-label="Volume" />
+                        <button id="mute-btn" title="Mute (M)" aria-label="Mute">🔊</button>
+                        <select id="speed-selector" title="Playback Speed" aria-label="Playback speed">
                             <option value="0.5">0.5x</option>
                             <option value="0.75">0.75x</option>
                             <option value="1" selected>1x</option>
@@ -1660,27 +1232,20 @@
                             <option value="1.5">1.5x</option>
                             <option value="2">2x</option>
                         </select>
-                        <select id="quality-selector" title="Quality (coming soon)">
+                        <select id="quality-selector" title="Quality" aria-label="Quality">
                             <option value="auto">Auto</option>
                             <option value="1080p">1080p</option>
                             <option value="720p">720p</option>
                             <option value="480p">480p</option>
                         </select>
-                        
-                        <!-- Server Selector -->
-                        <select id="server-selector" title="Select Server">
-                            <!-- Populated by JavaScript -->
-                        </select>
-                        
-                        <button id="pip-btn" title="Picture-in-Picture (I)">⧉</button>
-                        <button id="fullscreen-btn" title="Fullscreen (F)">⛶</button>
-                        <button id="theme-btn" title="Toggle Theme (T)">🌓</button>
+                        <button id="pip-btn" title="Picture-in-Picture (I)" aria-label="Picture in picture">⧉</button>
+                        <button id="fullscreen-btn" title="Fullscreen (F)" aria-label="Fullscreen">⛶</button>
+                        <button id="theme-btn" title="Toggle Theme (T)" aria-label="Toggle theme">🌓</button>
                     </div>
                 </div>
             </div>
 
-            <!-- Keyboard Shortcuts Help -->
-            <div id="shortcuts-help" title="Click to view keyboard shortcuts (?)">
+            <div id="shortcuts-help" role="button" tabindex="0" title="Click to view keyboard shortcuts (?)">
                 <kbd>?</kbd> View all shortcuts
             </div>
         </div>
@@ -1689,54 +1254,23 @@
     <!-- ============================================ -->
     <!-- KEYBOARD SHORTCUTS POPUP -->
     <!-- ============================================ -->
-    <div id="shortcuts-popup">
+    <div id="shortcuts-popup" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title">
         <div class="shortcuts-content">
-            <h2>⌨️ Keyboard Shortcuts</h2>
-            <div class="shortcut-row">
-                <span>Play / Pause</span>
-                <span class="shortcut-key">Space</span>
-            </div>
-            <div class="shortcut-row">
-                <span>Seek Forward 10s</span>
-                <span class="shortcut-key">→</span>
-            </div>
-            <div class="shortcut-row">
-                <span>Seek Backward 10s</span>
-                <span class="shortcut-key">←</span>
-            </div>
-            <div class="shortcut-row">
-                <span>Next Episode</span>
-                <span class="shortcut-key">N</span>
-            </div>
-            <div class="shortcut-row">
-                <span>Previous Episode</span>
-                <span class="shortcut-key">P</span>
-            </div>
-            <div class="shortcut-row">
-                <span>Fullscreen</span>
-                <span class="shortcut-key">F</span>
-            </div>
-            <div class="shortcut-row">
-                <span>Picture-in-Picture</span>
-                <span class="shortcut-key">I</span>
-            </div>
-            <div class="shortcut-row">
-                <span>Toggle Theme</span>
-                <span class="shortcut-key">T</span>
-            </div>
-            <div class="shortcut-row">
-                <span>Skip Intro</span>
-                <span class="shortcut-key">S</span>
-            </div>
-            <div class="shortcut-row">
-                <span>Home / Exit</span>
-                <span class="shortcut-key">Esc</span>
-            </div>
-            <div class="shortcut-row">
-                <span>Show Shortcuts</span>
-                <span class="shortcut-key">?</span>
-            </div>
-            <button class="close-shortcuts" id="close-shortcuts">Close</button>
+            <h2 id="shortcuts-title">⌨️ Keyboard Shortcuts</h2>
+            <div class="shortcut-row"><span>Play / Pause</span><span class="shortcut-key">Space</span></div>
+            <div class="shortcut-row"><span>Seek Forward 10s</span><span class="shortcut-key">→</span></div>
+            <div class="shortcut-row"><span>Seek Backward 10s</span><span class="shortcut-key">←</span></div>
+            <div class="shortcut-row"><span>Volume Up / Down</span><span class="shortcut-key">↑ / ↓</span></div>
+            <div class="shortcut-row"><span>Mute</span><span class="shortcut-key">M</span></div>
+            <div class="shortcut-row"><span>Next Episode</span><span class="shortcut-key">N</span></div>
+            <div class="shortcut-row"><span>Previous Episode</span><span class="shortcut-key">P</span></div>
+            <div class="shortcut-row"><span>Fullscreen</span><span class="shortcut-key">F</span></div>
+            <div class="shortcut-row"><span>Picture-in-Picture</span><span class="shortcut-key">I</span></div>
+            <div class="shortcut-row"><span>Toggle Theme</span><span class="shortcut-key">T</span></div>
+            <div class="shortcut-row"><span>Skip Intro</span><span class="shortcut-key">S</span></div>
+            <div class="shortcut-row"><span>Home / Exit</span><span class="shortcut-key">Esc</span></div>
+            <div class="shortcut-row"><span>Show Shortcuts</span><span class="shortcut-key">?</span></div>
+            <button class="close-shortcuts" id="close-shortcuts" type="button">Close</button>
         </div>
     </div>
 
