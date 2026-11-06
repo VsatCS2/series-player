@@ -1,4 +1,40 @@
 // ============================================
+// SAFE STORAGE (falls back to memory if localStorage is blocked/unavailable)
+// ============================================
+const safeStorage = (function () {
+    var mem = {};
+    var ok = true;
+    try {
+        window.localStorage.setItem('__t', '1');
+        window.localStorage.removeItem('__t');
+    } catch (e) { ok = false; }
+    return {
+        getItem: function (k) {
+            if (ok) { try { return window.localStorage.getItem(k); } catch (e) {} }
+            return Object.prototype.hasOwnProperty.call(mem, k) ? mem[k] : null;
+        },
+        setItem: function (k, v) {
+            if (ok) { try { window.localStorage.setItem(k, String(v)); return; } catch (e) {} }
+            mem[k] = String(v);
+        },
+        removeItem: function (k) {
+            if (ok) { try { window.localStorage.removeItem(k); } catch (e) {} }
+            delete mem[k];
+        },
+        keys: function () {
+            var out = [];
+            if (ok) {
+                try {
+                    for (var i = 0; i < window.localStorage.length; i++) out.push(window.localStorage.key(i));
+                } catch (e) {}
+            }
+            Object.keys(mem).forEach(function (k) { if (out.indexOf(k) === -1) out.push(k); });
+            return out;
+        }
+    };
+})();
+
+// ============================================
 // CONFIGURATION
 // ============================================
 
@@ -37,6 +73,8 @@ const SHOW_CONFIG = {
 
 const TMDB_API_KEY = 'f7e83b50d1afa3be38487a330b4edbe9';
 const TMDB_BASE = 'https://api.themoviedb.org/3';
+// Fallback host, tried automatically if the first one can't be reached
+const TMDB_HOSTS = [TMDB_BASE, 'https://api.tmdb.org/3'];
 const TMDB_IMG = 'https://image.tmdb.org/t/p';
 
 // Simple in-memory request cache to avoid hammering the API
@@ -45,41 +83,50 @@ const _inFlight = new Map();
 
 async function tmdbFetch(path, params = {}) {
     const query = new URLSearchParams({ api_key: TMDB_API_KEY, ...params });
-    const url = `${TMDB_BASE}${path}?${query}`;
+    const cacheKey = `${path}?${query}`;
 
-    if (_requestCache.has(url)) {
-        const cached = _requestCache.get(url);
+    if (_requestCache.has(cacheKey)) {
+        const cached = _requestCache.get(cacheKey);
         if (Date.now() - cached.time < 60000) return cached.data;
     }
-    if (_inFlight.has(url)) return _inFlight.get(url);
+    if (_inFlight.has(cacheKey)) return _inFlight.get(cacheKey);
 
     const promise = (async () => {
-        let attempt = 0;
-        const maxRetries = 2;
-        while (attempt <= maxRetries) {
-            const res = await fetch(url);
-            if (res.status === 429) {
-                // Rate limited — wait and retry
-                const retryAfter = parseInt(res.headers.get('Retry-After') || '2', 10);
-                await new Promise(r => setTimeout(r, retryAfter * 1000));
-                attempt++;
-                continue;
+        let lastError = null;
+        for (const base of TMDB_HOSTS) {
+            const url = `${base}${path}?${query}`;
+            for (let attempt = 0; attempt <= 2; attempt++) {
+                let res;
+                try {
+                    res = await fetch(url);
+                } catch (e) {
+                    // Network failure / timeout: move on to the next host
+                    lastError = e;
+                    break;
+                }
+                if (res.status === 429) {
+                    // Rate limited — wait and retry
+                    const retryAfter = parseInt(res.headers.get('Retry-After') || '2', 10);
+                    await new Promise(r => setTimeout(r, retryAfter * 1000));
+                    lastError = new Error('TMDB API rate limited — try again shortly');
+                    continue;
+                }
+                if (!res.ok) {
+                    throw new Error(`TMDB API error: ${res.status} ${res.statusText}`);
+                }
+                const data = await res.json();
+                _requestCache.set(cacheKey, { time: Date.now(), data });
+                return data;
             }
-            if (!res.ok) {
-                throw new Error(`TMDB API error: ${res.status} ${res.statusText}`);
-            }
-            const data = await res.json();
-            _requestCache.set(url, { time: Date.now(), data });
-            return data;
         }
-        throw new Error('TMDB API rate limited — try again shortly');
+        throw lastError || new Error('Could not reach TMDB');
     })();
 
-    _inFlight.set(url, promise);
+    _inFlight.set(cacheKey, promise);
     try {
         return await promise;
     } finally {
-        _inFlight.delete(url);
+        _inFlight.delete(cacheKey);
     }
 }
 
@@ -89,7 +136,7 @@ async function tmdbFetch(path, params = {}) {
 
 async function fetchShowData(showId, idType = 'auto') {
     const cacheKey = `show_data_${showId}`;
-    const cached = localStorage.getItem(cacheKey);
+    const cached = safeStorage.getItem(cacheKey);
     if (cached) {
         try {
             const data = JSON.parse(cached);
@@ -101,7 +148,7 @@ async function fetchShowData(showId, idType = 'auto') {
     }
 
     if (idType === 'auto') {
-        idType = String(showId).startsWith('tt') ? 'imdb' : 'tmdb';
+        idType = String(showId).toLowerCase().startsWith('tt') ? 'imdb' : 'tmdb';
     }
 
     console.log(`🔍 Fetching show data via ${idType} ID: ${showId}`);
@@ -120,7 +167,7 @@ async function fetchShowData(showId, idType = 'auto') {
         tmdbId = findData.tv_results[0].id;
     }
 
-    const data = await tmdbFetch(`/tv/${tmdbId}`, { append_to_response: 'seasons' });
+    const data = await tmdbFetch(`/tv/${tmdbId}`);
 
     const episodesPerSeason = {};
     data.seasons?.forEach(season => {
@@ -135,7 +182,7 @@ async function fetchShowData(showId, idType = 'auto') {
     const showData = {
         title: data.name || data.original_name || 'Unknown Show',
         tmdbId: data.id,
-        imdbId: showId.startsWith('tt') ? showId : null,
+        imdbId: String(showId).toLowerCase().startsWith('tt') ? String(showId) : null,
         episodesPerSeason,
         totalSeasons: Object.keys(episodesPerSeason).length,
         year: data.first_air_date ? new Date(data.first_air_date).getFullYear() : null,
@@ -146,7 +193,7 @@ async function fetchShowData(showId, idType = 'auto') {
     };
 
     try {
-        localStorage.setItem(cacheKey, JSON.stringify(showData));
+        safeStorage.setItem(cacheKey, JSON.stringify(showData));
     } catch (e) {
         console.warn('Failed to cache show data (storage full?)');
     }
@@ -197,7 +244,7 @@ const MAX_RECENT_SHOWS = 10;
 
 function getRecentShows() {
     try {
-        const data = localStorage.getItem(RECENT_SHOWS_KEY);
+        const data = safeStorage.getItem(RECENT_SHOWS_KEY);
         return data ? JSON.parse(data) : [];
     } catch (e) { return []; }
 }
@@ -219,13 +266,13 @@ function addRecentShow(showId, title, season, episode) {
         timestamp: new Date().toLocaleDateString(),
     });
     if (recent.length > MAX_RECENT_SHOWS) recent = recent.slice(0, MAX_RECENT_SHOWS);
-    try { localStorage.setItem(RECENT_SHOWS_KEY, JSON.stringify(recent)); } catch (e) {}
+    try { safeStorage.setItem(RECENT_SHOWS_KEY, JSON.stringify(recent)); } catch (e) {}
     return recent;
 }
 
 function removeRecentShow(showId) {
     let recent = getRecentShows().filter(item => item.id !== showId);
-    try { localStorage.setItem(RECENT_SHOWS_KEY, JSON.stringify(recent)); } catch (e) {}
+    try { safeStorage.setItem(RECENT_SHOWS_KEY, JSON.stringify(recent)); } catch (e) {}
     return recent;
 }
 
@@ -236,7 +283,7 @@ function updateRecentShowProgress(showId, season, episode) {
     recent[index].season = season;
     recent[index].episode = episode;
     recent[index].lastWatched = Date.now();
-    try { localStorage.setItem(RECENT_SHOWS_KEY, JSON.stringify(recent)); } catch (e) {}
+    try { safeStorage.setItem(RECENT_SHOWS_KEY, JSON.stringify(recent)); } catch (e) {}
 }
 
 // ============================================
@@ -248,14 +295,14 @@ const MAX_CONTINUE = 10;
 
 function getContinueWatching() {
     try {
-        const data = localStorage.getItem(CONTINUE_WATCHING_KEY);
+        const data = safeStorage.getItem(CONTINUE_WATCHING_KEY);
         return data ? JSON.parse(data) : [];
     } catch (e) { return []; }
 }
 
 function removeContinueWatching(showId) {
     const items = getContinueWatching().filter(item => item.id !== showId);
-    try { localStorage.setItem(CONTINUE_WATCHING_KEY, JSON.stringify(items)); } catch (e) {}
+    try { safeStorage.setItem(CONTINUE_WATCHING_KEY, JSON.stringify(items)); } catch (e) {}
     return items;
 }
 
@@ -285,7 +332,7 @@ function updateContinueWatching(showId, season, episode, progress, duration) {
         });
     }
     if (items.length > MAX_CONTINUE) items = items.slice(0, MAX_CONTINUE);
-    try { localStorage.setItem(CONTINUE_WATCHING_KEY, JSON.stringify(items)); } catch (e) {}
+    try { safeStorage.setItem(CONTINUE_WATCHING_KEY, JSON.stringify(items)); } catch (e) {}
     return items;
 }
 
@@ -310,32 +357,25 @@ function getUrlParams() {
 // ============================================
 
 function clearAllAppData() {
-    const keysToRemove = [];
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (
-            key.startsWith('progress_') ||
-            key.startsWith('duration_') ||
-            key.startsWith('show_data_') ||
-            key === RECENT_SHOWS_KEY ||
-            key === CONTINUE_WATCHING_KEY ||
-            key === 'player_speed' ||
-            key === 'player_volume' ||
-            key === 'theme'
-        )) {
-            keysToRemove.push(key);
-        }
-    }
-    keysToRemove.forEach(k => localStorage.removeItem(k));
+    const keysToRemove = safeStorage.keys().filter(key => key && (
+        key.startsWith('progress_') ||
+        key.startsWith('duration_') ||
+        key.startsWith('show_data_') ||
+        key === RECENT_SHOWS_KEY ||
+        key === CONTINUE_WATCHING_KEY ||
+        key === 'player_speed' ||
+        key === 'player_volume' ||
+        key === 'theme'
+    ));
+    keysToRemove.forEach(k => safeStorage.removeItem(k));
 }
 
 function getAppStorageSize() {
     let total = 0;
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
+    safeStorage.keys().forEach(key => {
         if (key && (key.startsWith('progress_') || key.startsWith('duration_') || key.startsWith('show_data_'))) {
-            total += (localStorage.getItem(key) || '').length;
+            total += (safeStorage.getItem(key) || '').length;
         }
-    }
+    });
     return total;
 }
