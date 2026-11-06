@@ -4,10 +4,10 @@
 
 // Shared player speed/volume persistence
 const PLAYER_PREFS = {
-    get speed() { return parseFloat(localStorage.getItem('player_speed') || '1'); },
-    set speed(v) { try { localStorage.setItem('player_speed', String(v)); } catch (e) {} },
-    get volume() { return parseFloat(localStorage.getItem('player_volume') || '1'); },
-    set volume(v) { try { localStorage.setItem('player_volume', String(v)); } catch (e) {} },
+    get speed() { return parseFloat(safeStorage.getItem('player_speed') || '1'); },
+    set speed(v) { try { safeStorage.setItem('player_speed', String(v)); } catch (e) {} },
+    get volume() { return parseFloat(safeStorage.getItem('player_volume') || '1'); },
+    set volume(v) { try { safeStorage.setItem('player_volume', String(v)); } catch (e) {} },
 };
 
 // ============================================
@@ -36,15 +36,19 @@ class HomeController {
         this.recentList = document.getElementById('recent-list');
         this.continueWatching = document.getElementById('continue-watching');
         this.continueList = document.getElementById('continue-list');
-        this.theme = localStorage.getItem('theme') || 'dark';
+        this.theme = safeStorage.getItem('theme') || 'dark';
 
         this.isLoading = false;
         this._searchDebounce = null;
 
         this.applyTheme();
         this.bindEvents();
-        this.renderRecentShows();
-        this.renderContinueWatching();
+        try {
+            this.renderRecentShows();
+            this.renderContinueWatching();
+        } catch (e) {
+            console.warn('Failed to render saved shows:', e);
+        }
 
         // Handle deep-link URL params
         const urlParams = getUrlParams();
@@ -62,7 +66,7 @@ class HomeController {
 
     toggleTheme() {
         this.theme = this.theme === 'dark' ? 'light' : 'dark';
-        try { localStorage.setItem('theme', this.theme); } catch (e) {}
+        try { safeStorage.setItem('theme', this.theme); } catch (e) {}
         this.applyTheme();
     }
 
@@ -81,7 +85,7 @@ class HomeController {
         this.searchInput.addEventListener('input', () => {
             clearTimeout(this._searchDebounce);
             const query = this.searchInput.value.trim();
-            if (query.length < 2 || /^tt\d+$/.test(query) || /^\d+$/.test(query)) {
+            if (query.length < 2 || /^tt\d+$/i.test(query) || /^\d+$/.test(query)) {
                 this.clearSearchResults();
                 return;
             }
@@ -89,9 +93,13 @@ class HomeController {
         });
 
         document.querySelectorAll('.example-card').forEach(card => {
-            card.addEventListener('click', () => {
+            const activate = () => {
                 this.searchInput.value = card.dataset.id;
                 this.handleSearch();
+            };
+            card.addEventListener('click', activate);
+            card.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); }
             });
         });
 
@@ -185,13 +193,14 @@ class HomeController {
             // If it's a bare number or IMDB ID, go straight to show
             const isId = /^tt\d+$/i.test(input) || /^\d+$/.test(input);
             if (isId) {
-                const idType = input.startsWith('tt') ? 'imdb' : 'tmdb';
-                const showData = await fetchShowData(input, idType);
+                const id = /^tt/i.test(input) ? input.toLowerCase() : input;
+                const idType = id.startsWith('tt') ? 'imdb' : 'tmdb';
+                const showData = await fetchShowData(id, idType);
                 if (Object.keys(showData.episodesPerSeason).length === 0) {
                     this.showError('No episodes found for this show.');
                     return;
                 }
-                this.startShow(input, 1, 1);
+                this.startShow(id, 1, 1);
                 return;
             }
 
@@ -359,11 +368,11 @@ class HomeController {
 
     escapeHtml(str) {
         return String(str ?? '')
-            .replace(/&/g, '&')
-            .replace(/</g, '<')
-            .replace(/>/g, '>')
-            .replace(/"/g, '"')
-            .replace(/'/g, ''');
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 }
 
@@ -588,7 +597,7 @@ class SeriesPlayer {
 
         let resumeTime = 0;
         if (checkResume) {
-            const saved = localStorage.getItem(this.getStorageKey());
+            const saved = safeStorage.getItem(this.getStorageKey());
             if (saved) {
                 const parsed = parseInt(saved, 10);
                 if (parsed > 30) {
@@ -1190,7 +1199,7 @@ class SeriesPlayer {
     saveProgressNow() {
         if (this.currentTime > 5 && this.duration > 0) {
             try {
-                localStorage.setItem(this.getStorageKey(), String(Math.floor(this.currentTime)));
+                safeStorage.setItem(this.getStorageKey(), String(Math.floor(this.currentTime)));
             } catch (e) {}
         }
     }
@@ -1205,7 +1214,7 @@ class SeriesPlayer {
 
         if (this.duration > 0) {
             try {
-                localStorage.setItem(
+                safeStorage.setItem(
                     `duration_${this.showId}_${this.currentSeason}_${this.currentEpisode}`,
                     String(Math.floor(this.duration))
                 );
@@ -1232,7 +1241,7 @@ class SeriesPlayer {
             if (now - this._lastProgressSave > 5000) {
                 this._lastProgressSave = now;
                 try {
-                    localStorage.setItem(this.getStorageKey(), String(Math.floor(this.currentTime)));
+                    safeStorage.setItem(this.getStorageKey(), String(Math.floor(this.currentTime)));
                 } catch (e) {}
             }
             if (now - this._lastContinueSave > 10000) {
@@ -1267,7 +1276,7 @@ class SeriesPlayer {
 
         if (player_status === 'completed' && !this.episodeEnded) {
             this.episodeEnded = true;
-            try { localStorage.setItem(this.getStorageKey(), String(Math.floor(this.duration))); } catch (e) {}
+            try { safeStorage.setItem(this.getStorageKey(), String(Math.floor(this.duration))); } catch (e) {}
             if (!this.nextEpisodeLoading) setTimeout(() => this.showNextOverlay(), 1000);
         }
     }
@@ -1318,11 +1327,11 @@ class SeriesPlayer {
 
     escapeHtml(str) {
         return String(str ?? '')
-            .replace(/&/g, '&')
-            .replace(/</g, '<')
-            .replace(/>/g, '>')
-            .replace(/"/g, '"')
-            .replace(/'/g, ''');
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     destroy() {
