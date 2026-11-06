@@ -17,9 +17,12 @@ const PLAYER_PREFS = {
 // The 'name' is what appears in the dropdown menu.
 const STREAMING_SERVERS = [
     { id: 'vaplayer', name: 'Server 1 (Original)' },
-    { id: 'vidsrc', name: 'Server 2 (VidSrc)' },
+    { id: 'vidsrc', name: 'Server 2 (VidSrc.sh)' },
     { id: 'vidlink', name: 'Server 3 (VidLink)' },
     { id: 'multiembed', name: 'Server 4 (MultiEmbed)' },
+    { id: 'vidfast', name: 'Server 5 (VidFast)' },
+    { id: '2embed', name: 'Server 6 (2Embed)' },
+    { id: 'smashystream', name: 'Server 7 (SmashyStream)' },
 ];
 
 // ============================================
@@ -643,9 +646,16 @@ class SeriesPlayer {
             case 'vidlink':
                 return `https://vidlink.pro/tv/${id}/${season}/${episode}?autoplay=true${resumeTime > 0 ? `&progress=${resumeTime}` : ''}`;
             case 'multiembed':
-                // MultiEmbed needs &tmdb=1 if the ID is numeric, or uses the IMDB id directly.
                 const isImdb = String(id).startsWith('tt');
                 return `https://multiembed.mov/?video_id=${id}${isImdb ? '' : '&tmdb=1'}&s=${season}&e=${episode}${resumeTime > 0 ? `&t=${resumeTime}` : ''}`;
+            case 'vidfast':
+                return `https://vidfast.pro/tv/${id}/${season}/${episode}?autoplay=1${resumeTime > 0 ? `&t=${resumeTime}` : ''}`;
+            case '2embed':
+                const isImdb2 = String(id).startsWith('tt');
+                const embedId = isImdb2 ? id : `tmdb/${id}`;
+                return `https://www.2embed.cc/embedtv/${embedId}&s=${season}&e=${episode}${resumeTime > 0 ? `&t=${resumeTime}` : ''}`;
+            case 'smashystream':
+                return `https://player.smashy.stream/tv/${id}?s=${season}&e=${episode}&autoplay=1${resumeTime > 0 ? `&t=${resumeTime}` : ''}`;
             case 'vaplayer':
             default:
                 let url = `https://vaplayer.ru/embed/tv/${id}/${season}/${episode}`;
