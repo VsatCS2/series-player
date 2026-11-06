@@ -1591,10 +1591,35 @@
 <body>
 
     <!-- ============================================ -->
+    <!-- ON-SCREEN ERROR BAR (no dev console on PS5) -->
+    <!-- ============================================ -->
+    <script>
+    (function() {
+        function show(msg) {
+            try {
+                var d = document.createElement('div');
+                d.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#900;color:#fff;padding:8px 12px;font:12px monospace;cursor:pointer';
+                d.textContent = msg + '  (tap to dismiss)';
+                d.onclick = function() { d.parentNode && d.parentNode.removeChild(d); };
+                document.documentElement.appendChild(d);
+            } catch (e) {}
+        }
+        window.onerror = function(msg, src, line) {
+            show(msg + ' [' + String(src || '').split('/').pop() + ':' + line + ']');
+        };
+        window.addEventListener('unhandledrejection', function(e) {
+            var r = e.reason;
+            show('Promise: ' + (r && r.message ? r.message : r));
+        });
+    })();
+    </script>
+
+    <!-- ============================================ -->
     <!-- GLOBAL FETCH TIMEOUT (prevents hangs on PS5) -->
     <!-- ============================================ -->
     <script>
     (function() {
+        if (!window.fetch || !window.AbortController) return;
         var nativeFetch = window.fetch.bind(window);
         window.fetch = function(resource, options) {
             options = options || {};
@@ -1655,27 +1680,23 @@
             <div class="quick-examples">
                 <h3>Quick Examples</h3>
                 <div class="example-grid">
-                    <div class="example-card" data-id="3796">
-                        <span class="example-title">Game of Thrones</span>
+                    <div class="example-card" role="button" tabindex="0" data-id="3796">
+                        <span class="example-title">Trailer Park Boys</span>
                         <span class="example-id">TMDB: 3796</span>
                     </div>
-                    <div class="example-card" data-id="tt13159924">
+                    <div class="example-card" role="button" tabindex="0" data-id="tt13159924">
                         <span class="example-title">House of the Dragon</span>
                         <span class="example-id">IMDB: tt13159924</span>
                     </div>
-                    <div class="example-card" data-id="1399">
+                    <div class="example-card" role="button" tabindex="0" data-id="1399">
                         <span class="example-title">Game of Thrones</span>
                         <span class="example-id">TMDB: 1399</span>
                     </div>
-                    <div class="example-card" data-id="tt0903747">
+                    <div class="example-card" role="button" tabindex="0" data-id="tt0903747">
                         <span class="example-title">Breaking Bad</span>
                         <span class="example-id">IMDB: tt0903747</span>
                     </div>
-                    <div class="example-card" data-id="tt0290988">
-                        <span class="example-title">Trailer Park Boys</span>
-                        <span class="example-id">IMDB: tt0290988</span>
-                    </div>
-                    <div class="example-card" data-id="tt0412142">
+                    <div class="example-card" role="button" tabindex="0" data-id="tt0412142">
                         <span class="example-title">House M.D.</span>
                         <span class="example-id">IMDB: tt0412142</span>
                     </div>
@@ -1858,7 +1879,7 @@
         </div>
     </div>
 
-    <script src="config.js"></script>
-    <script src="script.js"></script>
+    <script src="config.js?v=4"></script>
+    <script src="script.js?v=4"></script>
 </body>
 </html>
