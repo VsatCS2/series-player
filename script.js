@@ -11,6 +11,18 @@ const PLAYER_PREFS = {
 };
 
 // ============================================
+// AVAILABLE STREAMING SERVERS
+// ============================================
+// Add or remove providers here. The 'id' is used in the URL builder.
+// The 'name' is what appears in the dropdown menu.
+const STREAMING_SERVERS = [
+    { id: 'vaplayer', name: 'Server 1 (Original)' },
+    { id: 'vidsrc', name: 'Server 2 (VidSrc)' },
+    { id: 'vidlink', name: 'Server 3 (VidLink)' },
+    { id: 'multiembed', name: 'Server 4 (MultiEmbed)' },
+];
+
+// ============================================
 // HOME SCREEN CONTROLLER
 // ============================================
 
@@ -347,11 +359,11 @@ class HomeController {
 
     escapeHtml(str) {
         return String(str ?? '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
+            .replace(/&/g, '&')
+            .replace(/</g, '<')
+            .replace(/>/g, '>')
+            .replace(/"/g, '"')
+            .replace(/'/g, ''');
     }
 }
 
@@ -397,8 +409,12 @@ class SeriesPlayer {
         this._lastProgressSave = 0;
         this._lastContinueSave = 0;
 
+        // Current streaming server
+        this.currentServerId = 'vaplayer'; // Default
+
         // Cache DOM elements
         this.cacheDomElements();
+        this.populateServerSelector();
         this.bindEvents();
 
         this._onKeyDown = this._onKeyDown.bind(this);
@@ -455,6 +471,19 @@ class SeriesPlayer {
         this.goToEpisodeBtn = $('go-to-episode-btn');
         this.volumeSlider = $('volume-slider');
         this.muteBtn = $('mute-btn');
+        this.serverSelector = $('server-selector');
+    }
+
+    populateServerSelector() {
+        if (!this.serverSelector) return;
+        this.serverSelector.innerHTML = '';
+        STREAMING_SERVERS.forEach(server => {
+            const opt = document.createElement('option');
+            opt.value = server.id;
+            opt.textContent = server.name;
+            this.serverSelector.appendChild(opt);
+        });
+        this.serverSelector.value = this.currentServerId;
     }
 
     // ---------- Initialization ----------
@@ -589,22 +618,37 @@ class SeriesPlayer {
             this.episodeCounter.textContent = `S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}`;
         }
 
-        console.log(`📺 Loading S${season}E${episode}${resumeTime > 0 ? ` (resume ${resumeTime}s)` : ''}`);
+        console.log(`📺 Loading S${season}E${episode}${resumeTime > 0 ? ` (resume ${resumeTime}s)` : ''} via ${this.currentServerId}`);
 
         // Reset loading flag after iframe has had a chance to start
         setTimeout(() => { this.isLoading = false; }, 800);
     }
 
     buildPlayerUrl(season, episode, resumeTime = 0) {
-        let url = `https://vaplayer.ru/embed/tv/${this.showId}/${season}/${episode}`;
-        const params = new URLSearchParams();
-        params.set('autoplay', '1');
-        params.set('controls', '1');
-        params.set('rel', '0');
-        params.set('showinfo', '0');
-        params.set('modestbranding', '1');
-        if (resumeTime > 0) params.set('resumeAt', resumeTime);
-        return url + '?' + params.toString();
+        const server = this.currentServerId;
+        const id = this.showId;
+
+        switch (server) {
+            case 'vidsrc':
+                return `https://vidsrc.sh/embed/tv/${id}/${season}/${episode}?autoplay=1${resumeTime > 0 ? `&t=${resumeTime}` : ''}`;
+            case 'vidlink':
+                return `https://vidlink.pro/tv/${id}/${season}/${episode}?autoplay=true${resumeTime > 0 ? `&progress=${resumeTime}` : ''}`;
+            case 'multiembed':
+                // MultiEmbed needs &tmdb=1 if the ID is numeric, or uses the IMDB id directly.
+                const isImdb = String(id).startsWith('tt');
+                return `https://multiembed.mov/?video_id=${id}${isImdb ? '' : '&tmdb=1'}&s=${season}&e=${episode}${resumeTime > 0 ? `&t=${resumeTime}` : ''}`;
+            case 'vaplayer':
+            default:
+                let url = `https://vaplayer.ru/embed/tv/${id}/${season}/${episode}`;
+                const params = new URLSearchParams();
+                params.set('autoplay', '1');
+                params.set('controls', '1');
+                params.set('rel', '0');
+                params.set('showinfo', '0');
+                params.set('modestbranding', '1');
+                if (resumeTime > 0) params.set('resumeAt', resumeTime);
+                return url + '?' + params.toString();
+        }
     }
 
     getStorageKey() {
@@ -947,6 +991,15 @@ class SeriesPlayer {
             if (e.key === 'Enter') { e.preventDefault(); this.goToEpisode(); this.resetControlsTimer(); }
         });
 
+        // Server selector change
+        add(this.serverSelector, 'change', (e) => {
+            this.currentServerId = e.target.value;
+            console.log(`🔀 Switched server to: ${this.currentServerId}`);
+            // Reload the current episode with the new server
+            this.loadEpisode(this.currentSeason, this.currentEpisode, true);
+            this.resetControlsTimer();
+        });
+
         // Progress bar
         add(this.progressBar, 'click', (e) => {
             const rect = this.progressBar.getBoundingClientRect();
@@ -1265,11 +1318,11 @@ class SeriesPlayer {
 
     escapeHtml(str) {
         return String(str ?? '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
+            .replace(/&/g, '&')
+            .replace(/</g, '<')
+            .replace(/>/g, '>')
+            .replace(/"/g, '"')
+            .replace(/'/g, ''');
     }
 
     destroy() {
