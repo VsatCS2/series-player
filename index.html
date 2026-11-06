@@ -159,6 +159,74 @@
             border: 1px solid rgba(255, 0, 0, 0.2);
         }
 
+        /* ============================================ */
+        /* SEARCH RESULTS (NEW) */
+        /* ============================================ */
+        .search-results {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 14px;
+            margin-bottom: 30px;
+            animation: fadeInUp 0.3s ease;
+        }
+
+        .search-result {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            display: flex;
+            flex-direction: column;
+            outline: none;
+        }
+
+        .search-result:hover,
+        .search-result:focus {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(229, 9, 20, 0.5);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        }
+
+        .search-result-poster {
+            width: 100%;
+            aspect-ratio: 2 / 3;
+            object-fit: cover;
+            display: block;
+            background: #1a1a1a;
+        }
+
+        .search-result-poster.placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            color: #444;
+        }
+
+        .search-result-info {
+            padding: 10px 12px 12px;
+        }
+
+        .search-result-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #fff;
+            line-height: 1.3;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+
+        .search-result-year {
+            font-size: 11px;
+            color: #888;
+            margin-top: 4px;
+        }
+
         /* Continue Watching Row */
         #continue-watching {
             margin-bottom: 30px;
@@ -1169,6 +1237,25 @@
             color: #999;
         }
 
+        body.light-theme .search-result {
+            background: rgba(255, 255, 255, 0.9);
+            border-color: rgba(0, 0, 0, 0.08);
+        }
+
+        body.light-theme .search-result:hover,
+        body.light-theme .search-result:focus {
+            background: #fff;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        }
+
+        body.light-theme .search-result-title {
+            color: #333;
+        }
+
+        body.light-theme .search-result-year {
+            color: #888;
+        }
+
         body.light-theme .recent-item,
         body.light-theme .continue-item,
         body.light-theme .example-card {
@@ -1312,6 +1399,15 @@
             .search-box button {
                 width: 100%;
                 justify-content: center;
+            }
+
+            .search-results {
+                grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+                gap: 10px;
+            }
+
+            .search-result-title {
+                font-size: 12px;
             }
 
             .recent-list,
@@ -1495,13 +1591,32 @@
 <body>
 
     <!-- ============================================ -->
+    <!-- GLOBAL FETCH TIMEOUT (prevents hangs on PS5) -->
+    <!-- ============================================ -->
+    <script>
+    (function() {
+        var nativeFetch = window.fetch.bind(window);
+        window.fetch = function(resource, options) {
+            options = options || {};
+            if (options.signal) return nativeFetch(resource, options);
+            var controller = new AbortController();
+            var timeoutId = setTimeout(function() {
+                controller.abort(new DOMException('Network timeout', 'TimeoutError'));
+            }, 12000);
+            return nativeFetch(resource, Object.assign({}, options, { signal: controller.signal }))
+                .finally(function() { clearTimeout(timeoutId); });
+        };
+    })();
+    </script>
+
+    <!-- ============================================ -->
     <!-- HOME SCREEN -->
     <!-- ============================================ -->
     <div id="home-screen" class="active">
         <div class="home-container">
             <div class="home-header">
                 <h1>🎬 Series Player</h1>
-                <p>Watch any TV show with auto-play, resume, and skip features</p>
+                <p>Search any TV show by name, TMDB ID, or IMDB ID</p>
             </div>
 
             <!-- Search Section -->
@@ -1510,16 +1625,19 @@
                     <input
                         type="text"
                         id="search-input"
-                        placeholder="Enter TMDB ID (e.g., 3796) or IMDB ID (e.g., tt0944947)"
+                        placeholder="Search by show name, e.g. Breaking Bad"
                         autofocus
                     />
                     <button id="search-btn">▶ Watch</button>
                 </div>
                 <div class="search-hint">
-                    <small>Try: 3796 (Game of Thrones) or tt0944947</small>
+                    <small>Try a show name like <strong>Breaking Bad</strong>, or paste an ID like 3796 / tt0903747</small>
                 </div>
                 <div id="search-error" class="error-message hidden"></div>
             </div>
+
+            <!-- Search Results (NEW — required by script.js) -->
+            <div id="search-results" class="search-results hidden"></div>
 
             <!-- Continue Watching Row -->
             <div id="continue-watching" class="hidden">
@@ -1634,7 +1752,7 @@
                         <button id="play-pause-btn" title="Play/Pause (Space)">⏸</button>
                         <button id="prev-episode-btn" title="Previous Episode">⏮</button>
                         <button id="next-episode-btn" title="Next Episode (N)">⏭</button>
-                        
+
                         <!-- Episode/Season Selector -->
                         <div id="episode-selector">
                             <span class="selector-label">S</span>
@@ -1647,7 +1765,7 @@
                             </select>
                             <button id="go-to-episode-btn">Go</button>
                         </div>
-                        
+
                         <span id="episode-counter">S01E01</span>
                     </div>
 
@@ -1666,12 +1784,12 @@
                             <option value="720p">720p</option>
                             <option value="480p">480p</option>
                         </select>
-                        
+
                         <!-- Server Selector -->
                         <select id="server-selector" title="Select Server">
                             <!-- Populated by JavaScript -->
                         </select>
-                        
+
                         <button id="pip-btn" title="Picture-in-Picture (I)">⧉</button>
                         <button id="fullscreen-btn" title="Fullscreen (F)">⛶</button>
                         <button id="theme-btn" title="Toggle Theme (T)">🌓</button>
