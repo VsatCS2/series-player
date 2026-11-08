@@ -1720,20 +1720,11 @@
                     Loading episode...
                 </div>
 
-                <!--
-                    SANDBOXED IFRAME:
-                    - allow-scripts: lets the player's JS run
-                    - allow-same-origin: lets it use its own storage/cookies
-                    - allow-forms: lets login/quality forms work
-                    - allow-presentation: lets fullscreen presentation work
-                    NOT included: allow-popups, allow-top-navigation, allow-modals
-                    -> blocks pop-up ad tabs and top-level redirects.
-                -->
+                <!-- Sandbox removed — back to original working iframe -->
                 <iframe id="player"
-                        allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+                        allow="autoplay; fullscreen; picture-in-picture"
                         allowfullscreen
-                        frameborder="0"
-                        sandbox="allow-scripts allow-same-origin allow-forms allow-presentation">
+                        frameborder="0">
                 </iframe>
 
                 <!-- Overlay UI Elements -->
