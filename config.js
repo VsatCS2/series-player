@@ -348,6 +348,7 @@ function getUrlParams() {
         showId: params.get('id') || params.get('tmdb') || params.get('imdb') || null,
         season: params.get('season') ? parseInt(params.get('season'), 10) : null,
         episode: params.get('episode') ? parseInt(params.get('episode'), 10) : null,
+        provider: params.get('provider') || null, // ← NEW
     };
     return _urlParamsCache;
 }
