@@ -2,7 +2,6 @@
 // SERIES PLAYER
 // ============================================
 
-// Shared player speed/volume persistence
 const PLAYER_PREFS = {
     get speed() { return parseFloat(safeStorage.getItem('player_speed') || '1'); },
     set speed(v) { try { safeStorage.setItem('player_speed', String(v)); } catch (e) {} },
@@ -13,10 +12,8 @@ const PLAYER_PREFS = {
 // ============================================
 // AVAILABLE STREAMING SERVERS
 // ============================================
-// Add or remove providers here. The 'id' is used in the URL builder.
-// The 'name' is what appears in the dropdown menu.
 const STREAMING_SERVERS = [
-    { id: 'vaplayer', name: 'Server 1 (Original)' },
+    { id: 'vaplayer', name: 'Server 1 (Original Direct)' },
     { id: 'vidsrc', name: 'Server 2 (VidSrc.sh)' },
     { id: 'vidlink', name: 'Server 3 (VidLink)' },
     { id: 'multiembed', name: 'Server 4 (MultiEmbed)' },
@@ -25,12 +22,8 @@ const STREAMING_SERVERS = [
     { id: 'smashystream', name: 'Server 7 (SmashyStream)' },
 ];
 
-// ============================================
-// CLOUDFLARE WORKER PROXY
-// ============================================
-// Routes vaplayer requests through a Worker that spoofs a desktop UA,
-// so the PS5 browser isn't blocked by the provider.
 const VAPLAYER_PROXY = 'https://vaplayer-proxy.zenithclaire5.workers.dev';
+const VAPLAYER_API = 'https://streamdata.vaplayer.ru/api.php';
 
 // ============================================
 // HOME SCREEN CONTROLLER
@@ -60,8 +53,7 @@ class HomeController {
             console.warn('Failed to render saved shows:', e);
         }
 
-        // Handle deep-link URL params: if ?id=... is present, jump straight
-        // into the player and hide the home screen immediately.
+        // Handle deep-link URL params: ?id=...&season=...&episode=...&provider=...
         const urlParams = getUrlParams();
         if (urlParams.showId) {
             document.getElementById('home-screen')?.classList.remove('active');
@@ -69,7 +61,8 @@ class HomeController {
                 this.startShow(
                     urlParams.showId,
                     urlParams.season || 1,
-                    urlParams.episode || 1
+                    urlParams.episode || 1,
+                    urlParams.provider || 'vaplayer'
                 );
             }, 50);
         }
@@ -97,7 +90,6 @@ class HomeController {
             }
         });
 
-        // Live search as user types
         this.searchInput.addEventListener('input', () => {
             clearTimeout(this._searchDebounce);
             const query = this.searchInput.value.trim();
@@ -108,13 +100,12 @@ class HomeController {
             this._searchDebounce = setTimeout(() => this.doLiveSearch(query), 350);
         });
 
-        // Example cards: open in a new tab with a unique URL
         document.querySelectorAll('.example-card').forEach(card => {
             const activate = (e) => {
                 e.preventDefault();
                 const id = card.dataset.id || card.getAttribute('href')?.replace(/^.*id=/, '').split('&')[0];
                 if (!id) return;
-                this.openInNewTab(id, 1, 1);
+                this.openInNewTab(id, 1, 1, 'vaplayer');
             };
             card.addEventListener('click', activate);
             card.addEventListener('keydown', (e) => {
@@ -149,7 +140,6 @@ class HomeController {
             if (this.searchInput.value.trim() !== query) return;
             this.renderSearchResults(results);
         } catch (e) {
-            // Silent — live search errors shouldn't spam
             console.warn('Live search failed:', e.message);
         }
     }
@@ -178,7 +168,7 @@ class HomeController {
                     <div class="search-result-year">${item.year || ''}</div>
                 </div>
             `;
-            const activate = () => this.openInNewTab(item.id, 1, 1);
+            const activate = () => this.openInNewTab(item.id, 1, 1, 'vaplayer');
             div.addEventListener('click', activate);
             div.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); }
@@ -209,7 +199,6 @@ class HomeController {
         this.searchBtn.textContent = 'Loading...';
 
         try {
-            // If it's a bare number or IMDB ID, go straight to show
             const isId = /^tt\d+$/i.test(input) || /^\d+$/.test(input);
             if (isId) {
                 const id = /^tt/i.test(input) ? input.toLowerCase() : input;
@@ -219,21 +208,19 @@ class HomeController {
                     this.showError('No episodes found for this show.');
                     return;
                 }
-                this.openInNewTab(id, 1, 1);
+                this.openInNewTab(id, 1, 1, 'vaplayer');
                 return;
             }
 
-            // Otherwise treat as a name search
             const results = await searchShows(input);
             if (results.length === 0) {
                 this.showError(`No shows found for "${input}"`);
                 return;
             }
             if (results.length === 1) {
-                this.openInNewTab(results[0].id, 1, 1);
+                this.openInNewTab(results[0].id, 1, 1, 'vaplayer');
                 return;
             }
-            // Multiple results — show them
             this.renderSearchResults(results);
         } catch (error) {
             this.showError(`Search failed: ${error.message || 'Please try again'}`);
@@ -244,7 +231,7 @@ class HomeController {
         }
     }
 
-    startShow(showId, season, episode) {
+    startShow(showId, season, episode, provider = 'vaplayer') {
         const homeScreen = document.getElementById('home-screen');
         const playerScreen = document.getElementById('player-screen');
 
@@ -265,9 +252,9 @@ class HomeController {
             introDuration: SHOW_CONFIG.introDuration,
             outroDuration: SHOW_CONFIG.outroDuration,
             nextEpisodeDelay: SHOW_CONFIG.nextEpisodeDelay,
+            initialProvider: provider,
         };
 
-        // Defer player init so DOM reflow completes
         requestAnimationFrame(() => {
             setTimeout(() => {
                 try {
@@ -280,17 +267,13 @@ class HomeController {
         });
     }
 
-    /**
-     * Opens a show in a new browser tab with a unique URL.
-     * The new tab's HomeController sees ?id=... and jumps straight to the player.
-     * If an ad hijacks the player tab, the original tab is untouched — click again.
-     */
-    openInNewTab(showId, season = 1, episode = 1) {
+    openInNewTab(showId, season = 1, episode = 1, provider = 'vaplayer') {
         const url = new URL(window.location.href);
         url.search = '';
         url.searchParams.set('id', showId);
         url.searchParams.set('season', season);
         url.searchParams.set('episode', episode);
+        url.searchParams.set('provider', provider);
         window.open(url.toString(), '_blank', 'noopener');
     }
 
@@ -324,7 +307,7 @@ class HomeController {
 
             div.addEventListener('click', (e) => {
                 if (e.target.classList.contains('continue-remove')) return;
-                this.openInNewTab(item.id, item.season || 1, item.episode || 1);
+                this.openInNewTab(item.id, item.season || 1, item.episode || 1, item.provider || 'vaplayer');
             });
 
             div.querySelector('.continue-remove').addEventListener('click', (e) => {
@@ -366,7 +349,8 @@ class HomeController {
                 this.openInNewTab(
                     item.id,
                     resume?.season || item.season || 1,
-                    resume?.episode || item.episode || 1
+                    resume?.episode || item.episode || 1,
+                    item.provider || 'vaplayer'
                 );
             });
 
@@ -381,7 +365,6 @@ class HomeController {
     }
 
     getResumePoint(showId) {
-        // Prefer the continue-watching entry (has lastWatched timestamp)
         const continueItems = getContinueWatching();
         const cw = continueItems.find(item => item.id === showId);
         if (cw && cw.progress > 30 && (cw.duration === 0 || cw.progress < cw.duration - 30)) {
@@ -451,10 +434,9 @@ class SeriesPlayer {
         this._lastProgressSave = 0;
         this._lastContinueSave = 0;
 
-        // Current streaming server
-        this.currentServerId = 'vaplayer'; // Default
+        this.currentServerId = config.initialProvider || 'vaplayer';
+        this.hls = null;
 
-        // Cache DOM elements
         this.cacheDomElements();
         this.populateServerSelector();
         this.bindEvents();
@@ -477,6 +459,7 @@ class SeriesPlayer {
     cacheDomElements() {
         const $ = id => document.getElementById(id);
         this.player = $('player');
+        this.videoPlayer = $('video-player');
         this.playerWrapper = $('player-wrapper');
         this.playerScreen = $('player-screen');
         this.app = $('app');
@@ -528,7 +511,6 @@ class SeriesPlayer {
         this.serverSelector.value = this.currentServerId;
     }
 
-    // ---------- Initialization ----------
     async initializePlayer() {
         try {
             this.showLoading(true);
@@ -545,7 +527,6 @@ class SeriesPlayer {
             this.populateSeasonSelector();
             addRecentShow(this.showId, this.showData.title, this.currentSeason, this.currentEpisode);
 
-            // Set initial volume/speed UI
             if (this.volumeSlider) this.volumeSlider.value = String(this.volume);
             if (this.speedSelector) this.speedSelector.value = String(this.playbackSpeed);
             this.updateMuteButton();
@@ -553,9 +534,7 @@ class SeriesPlayer {
             this.loadEpisode(this.currentSeason, this.currentEpisode, true);
 
             this.initialized = true;
-            console.log(`✅ "${this.showData.title}" loaded successfully!`);
 
-            // Fetch episode titles in background (non-blocking)
             if (this.showData.tmdbId) {
                 const seasonNumbers = Object.keys(this.showData.episodesPerSeason).map(Number);
                 fetchEpisodeTitles(this.showData.tmdbId, seasonNumbers)
@@ -596,8 +575,7 @@ class SeriesPlayer {
         errorDiv.querySelector('#error-back-btn').addEventListener('click', () => this.goHome());
     }
 
-    // ---------- Episode Loading ----------
-    loadEpisode(season, episode, checkResume = true) {
+    async loadEpisode(season, episode, checkResume = true) {
         if (this.isLoading || this.destroyed) return;
 
         const totalEps = this.config.episodesPerSeason?.[season];
@@ -614,7 +592,6 @@ class SeriesPlayer {
         this.skipIntroClicked = false;
         this.nextEpisodeLoading = false;
 
-        // Cancel any pending countdown
         clearInterval(this.nextEpisodeTimer);
         this.nextEpisodeTimer = null;
 
@@ -640,15 +617,12 @@ class SeriesPlayer {
             }
         }
 
-        const url = this.buildPlayerUrl(season, episode, resumeTime);
+        this.hideAllPlayers();
 
-        try {
-            this.player.src = url;
-        } catch (e) {
-            console.error('Failed to set player URL:', e);
-            if (resumeTime > 0) {
-                try { this.player.src = this.buildPlayerUrl(season, episode, 0); } catch (e2) {}
-            }
+        if (this.currentServerId === 'vaplayer') {
+            await this.loadDirectStream(season, episode, resumeTime);
+        } else {
+            this.loadIframeStream(season, episode, resumeTime);
         }
 
         this.updateEpisodeInfo(season, episode);
@@ -660,13 +634,115 @@ class SeriesPlayer {
             this.episodeCounter.textContent = `S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}`;
         }
 
-        console.log(`📺 Loading S${season}E${episode}${resumeTime > 0 ? ` (resume ${resumeTime}s)` : ''} via ${this.currentServerId}`);
-
-        // Reset loading flag after iframe has had a chance to start
         setTimeout(() => { this.isLoading = false; }, 800);
     }
 
-    buildPlayerUrl(season, episode, resumeTime = 0) {
+    async loadDirectStream(season, episode, resumeTime = 0) {
+        // Proxy the API call through the Worker to bypass CORS.
+        const apiUrl = `${VAPLAYER_API}?imdb=${this.showId}&type=tv&season=${season}&episode=${episode}`;
+        const proxiedApi = `${VAPLAYER_PROXY}/?api=${encodeURIComponent(apiUrl)}`;
+
+        try {
+            const res = await fetch(proxiedApi);
+            if (!res.ok) throw new Error(`API returned ${res.status}`);
+            const data = await res.json();
+            console.log('📡 vaplayer API response:', data);
+
+            // Try several possible response shapes — log if none match.
+            let rawM3u8 =
+                data?.data?.stream_urls?.[0] ||
+                data?.stream_urls?.[0] ||
+                data?.data?.stream ||
+                data?.data?.url ||
+                data?.stream ||
+                data?.url ||
+                null;
+
+            if (!rawM3u8 && Array.isArray(data?.data?.sources)) {
+                rawM3u8 = data.data.sources[0]?.url || data.data.sources[0]?.file || null;
+            }
+
+            if (!rawM3u8) {
+                throw new Error(
+                    'Unexpected API shape. Full response: ' +
+                    JSON.stringify(data).slice(0, 400)
+                );
+            }
+
+            console.log('🎬 Raw stream URL:', rawM3u8);
+
+            const proxiedM3u8 = `${VAPLAYER_PROXY}/?m3u8=${encodeURIComponent(rawM3u8)}`;
+
+            this.showLoading(true);
+            this.videoPlayer.style.display = 'block';
+            this.player.style.display = 'none';
+
+            if (this.hls) { this.hls.destroy(); this.hls = null; }
+
+            if (window.Hls && Hls.isSupported()) {
+                this.hls = new Hls({
+                    manifestLoadingTimeOut: 20000,
+                    manifestLoadingMaxRetry: 3,
+                    levelLoadingTimeOut: 20000,
+                    fragLoadingTimeOut: 30000,
+                });
+
+                this.hls.on(Hls.Events.ERROR, (event, data) => {
+                    if (data.fatal) {
+                        console.error('❌ HLS fatal:', data.type, data.details, data);
+                        this.showError(`Stream error: ${data.details}`);
+                    } else {
+                        console.warn('HLS warning:', data.details);
+                    }
+                });
+
+                this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    console.log('✅ Manifest parsed — levels:', this.hls.levels.map(l => `${l.width}x${l.height}`));
+                    if (resumeTime > 0) this.videoPlayer.currentTime = resumeTime;
+                    this.videoPlayer.play().catch(err => {
+                        console.warn('Autoplay blocked:', err.message);
+                    });
+                    this.showLoading(false);
+                });
+
+                this.hls.loadSource(proxiedM3u8);
+                this.hls.attachMedia(this.videoPlayer);
+            } else if (this.videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+                this.videoPlayer.src = proxiedM3u8;
+                if (resumeTime > 0) this.videoPlayer.currentTime = resumeTime;
+                this.videoPlayer.play().catch(() => {});
+                this.showLoading(false);
+            } else {
+                throw new Error('HLS is not supported in this browser');
+            }
+        } catch (err) {
+            console.error('❌ Direct stream failed:', err);
+            this.showError(err.message || 'Failed to load direct stream');
+            this.showLoading(false);
+        }
+    }
+
+    loadIframeStream(season, episode, resumeTime = 0) {
+        this.videoPlayer.style.display = 'none';
+        this.player.style.display = 'block';
+        this.player.src = this.buildIframeUrl(season, episode, resumeTime);
+    }
+
+    hideAllPlayers() {
+        this.videoPlayer.style.display = 'none';
+        this.player.style.display = 'none';
+        try {
+            this.videoPlayer.pause();
+            this.videoPlayer.removeAttribute('src');
+            this.videoPlayer.load();
+        } catch (e) {}
+        if (this.hls) {
+            this.hls.destroy();
+            this.hls = null;
+        }
+    }
+
+    buildIframeUrl(season, episode, resumeTime = 0) {
         const server = this.currentServerId;
         const id = this.showId;
 
@@ -686,21 +762,8 @@ class SeriesPlayer {
                 return `https://www.2embed.cc/embedtv/${embedId}&s=${season}&e=${episode}${resumeTime > 0 ? `&t=${resumeTime}` : ''}`;
             case 'smashystream':
                 return `https://player.smashy.stream/tv/${id}?s=${season}&e=${episode}&autoplay=1${resumeTime > 0 ? `&t=${resumeTime}` : ''}`;
-            case 'vaplayer':
             default:
-                // Build the original vaplayer URL
-                const originalUrl = `https://vaplayer.ru/embed/tv/${id}/${season}/${episode}`;
-                const params = new URLSearchParams();
-                params.set('autoplay', '1');
-                params.set('controls', '1');
-                params.set('rel', '0');
-                params.set('showinfo', '0');
-                params.set('modestbranding', '1');
-                if (resumeTime > 0) params.set('resumeAt', resumeTime);
-                const fullUrl = originalUrl + '?' + params.toString();
-
-                // Route through the Cloudflare Worker that spoofs the User-Agent
-                return `${VAPLAYER_PROXY}/?url=${encodeURIComponent(fullUrl)}`;
+                return `https://vidsrc.sh/embed/tv/${id}/${season}/${episode}?autoplay=1`;
         }
     }
 
@@ -712,7 +775,6 @@ class SeriesPlayer {
         return this.episodeTitles[`${season}_${episode}`] || '';
     }
 
-    // ---------- UI Updates ----------
     updateEpisodeInfo(season, episode) {
         if (this.episodeLabel) this.episodeLabel.textContent = `Season ${season}, Episode ${episode}`;
         const title = this.getEpisodeTitle(season, episode);
@@ -769,7 +831,6 @@ class SeriesPlayer {
         this.nextEpisodeTimer = null;
     }
 
-    // ---------- Navigation ----------
     loadNextEpisode() {
         if (this.nextEpisodeLoading || this.destroyed) return;
         this.nextEpisodeLoading = true;
@@ -847,31 +908,31 @@ class SeriesPlayer {
         this.episodeSelect.value = String(this.currentEpisode);
     }
 
-    // ---------- Playback Controls ----------
-    //
-    // NOTE: Third-party embeds do NOT listen for our postMessage commands.
-    // These controls attempt postMessage as a best-effort; when they fail,
-    // the embed's own controls (controls=1) remain the source of truth.
-    // For full control, replace the iframe with an HLS.js <video> player.
-    // ----------
-
     togglePlay() {
-        if (this.destroyed || !this.player) return;
-        this.postPlayerMessage({ type: 'PLAYER_CONTROL', action: this.isPlaying ? 'pause' : 'play' });
-        this.isPlaying = !this.isPlaying;
-        if (this.playPauseBtn) this.playPauseBtn.textContent = this.isPlaying ? '⏸' : '▶';
+        if (this.destroyed) return;
+        if (this.currentServerId === 'vaplayer' && this.videoPlayer.style.display === 'block') {
+            if (this.videoPlayer.paused) this.videoPlayer.play(); else this.videoPlayer.pause();
+        } else {
+            this.postPlayerMessage({ type: 'PLAYER_CONTROL', action: this.isPlaying ? 'pause' : 'play' });
+            this.isPlaying = !this.isPlaying;
+            if (this.playPauseBtn) this.playPauseBtn.textContent = this.isPlaying ? '⏸' : '▶';
+        }
         this.resetControlsTimer();
     }
 
     seekTo(time) {
         if (this.destroyed) return;
-        if (this._seekTimeout) clearTimeout(this._seekTimeout);
-        this._seekTimeout = setTimeout(() => {
-            this._seekTimeout = null;
-            const clamped = Math.max(0, Math.min(time, this.duration || 999999));
-            this.postPlayerMessage({ type: 'PLAYER_CONTROL', action: 'seek', value: clamped });
-            this.resetControlsTimer();
-        }, 120);
+        if (this.currentServerId === 'vaplayer' && this.videoPlayer.style.display === 'block') {
+            this.videoPlayer.currentTime = time;
+        } else {
+            if (this._seekTimeout) clearTimeout(this._seekTimeout);
+            this._seekTimeout = setTimeout(() => {
+                this._seekTimeout = null;
+                const clamped = Math.max(0, Math.min(time, this.duration || 999999));
+                this.postPlayerMessage({ type: 'PLAYER_CONTROL', action: 'seek', value: clamped });
+                this.resetControlsTimer();
+            }, 120);
+        }
     }
 
     skipIntro() {
@@ -887,7 +948,11 @@ class SeriesPlayer {
         if (this.destroyed) return;
         this.playbackSpeed = parseFloat(speed);
         PLAYER_PREFS.speed = this.playbackSpeed;
-        this.postPlayerMessage({ type: 'PLAYER_CONTROL', action: 'speed', value: this.playbackSpeed });
+        if (this.currentServerId === 'vaplayer' && this.videoPlayer.style.display === 'block') {
+            this.videoPlayer.playbackRate = this.playbackSpeed;
+        } else {
+            this.postPlayerMessage({ type: 'PLAYER_CONTROL', action: 'speed', value: this.playbackSpeed });
+        }
     }
 
     setVolume(volume) {
@@ -898,7 +963,12 @@ class SeriesPlayer {
             this.lastVolume = this.volume;
         }
         PLAYER_PREFS.volume = this.volume;
-        this.postPlayerMessage({ type: 'PLAYER_CONTROL', action: 'volume', value: this.volume });
+        if (this.currentServerId === 'vaplayer' && this.videoPlayer.style.display === 'block') {
+            this.videoPlayer.volume = this.volume;
+            this.videoPlayer.muted = this.muted;
+        } else {
+            this.postPlayerMessage({ type: 'PLAYER_CONTROL', action: 'volume', value: this.volume });
+        }
         this.updateMuteButton();
         if (this.volumeSlider) this.volumeSlider.value = String(this.volume);
     }
@@ -911,7 +981,11 @@ class SeriesPlayer {
         } else {
             this.lastVolume = this.volume;
             this.muted = true;
-            this.postPlayerMessage({ type: 'PLAYER_CONTROL', action: 'mute', value: true });
+            if (this.currentServerId === 'vaplayer' && this.videoPlayer.style.display === 'block') {
+                this.videoPlayer.muted = true;
+            } else {
+                this.postPlayerMessage({ type: 'PLAYER_CONTROL', action: 'mute', value: true });
+            }
             if (this.volumeSlider) this.volumeSlider.value = '0';
         }
         this.updateMuteButton();
@@ -927,16 +1001,12 @@ class SeriesPlayer {
     postPlayerMessage(message) {
         try {
             this.player?.contentWindow?.postMessage(message, '*');
-        } catch (e) {
-            // Cross-origin restrictions; best-effort only
-        }
+        } catch (e) {}
     }
 
     toggleFullscreen() {
         if (!document.fullscreenElement) {
-            this.app?.requestFullscreen?.().catch(() => {
-                console.warn('Fullscreen not available');
-            });
+            this.app?.requestFullscreen?.().catch(() => {});
         } else {
             document.exitFullscreen?.().catch(() => {});
         }
@@ -946,11 +1016,10 @@ class SeriesPlayer {
         try {
             if (document.pictureInPictureElement) {
                 await document.exitPictureInPicture();
+            } else if (this.videoPlayer && document.pictureInPictureEnabled) {
+                await this.videoPlayer.requestPictureInPicture();
             } else if (this.player && document.pictureInPictureEnabled) {
-                // Only works if iframe has allow="picture-in-picture"
                 await this.player.requestPictureInPicture();
-            } else {
-                console.warn('Picture-in-Picture not supported here');
             }
         } catch (e) {
             console.warn('PiP failed:', e.message);
@@ -961,7 +1030,6 @@ class SeriesPlayer {
         window.homeController?.toggleTheme();
     }
 
-    // ---------- Controls Auto-Hide ----------
     showControls() {
         this.controlsBar?.classList.remove('hidden');
         this.playerWrapper?.classList.add('controls-shown');
@@ -987,46 +1055,19 @@ class SeriesPlayer {
         }
     }
 
-    // ---------- Event Binding ----------
     bindEvents() {
         const add = (el, event, handler) => el?.addEventListener(event, handler);
 
         add(this.playPauseBtn, 'click', (e) => { e.preventDefault(); this.togglePlay(); });
-
-        add(this.prevEpisodeBtn, 'click', (e) => {
-            e.preventDefault();
-            this.hideNextOverlay();
-            this.loadPreviousEpisode();
-            this.resetControlsTimer();
-        });
-
-        add(this.nextEpisodeBtn, 'click', (e) => {
-            e.preventDefault();
-            this.hideNextOverlay();
-            this.loadNextEpisode();
-            this.resetControlsTimer();
-        });
-
-        add(this.skipIntroBtn?.querySelector('button'), 'click', (e) => {
-            e.preventDefault();
-            this.skipIntro();
-            this.resetControlsTimer();
-        });
-
-        add(this.nextNowBtn, 'click', (e) => {
-            e.preventDefault();
-            this.hideNextOverlay();
-            this.loadNextEpisode();
-            this.resetControlsTimer();
-        });
-
+        add(this.prevEpisodeBtn, 'click', (e) => { e.preventDefault(); this.hideNextOverlay(); this.loadPreviousEpisode(); this.resetControlsTimer(); });
+        add(this.nextEpisodeBtn, 'click', (e) => { e.preventDefault(); this.hideNextOverlay(); this.loadNextEpisode(); this.resetControlsTimer(); });
+        add(this.skipIntroBtn?.querySelector('button'), 'click', (e) => { e.preventDefault(); this.skipIntro(); this.resetControlsTimer(); });
+        add(this.nextNowBtn, 'click', (e) => { e.preventDefault(); this.hideNextOverlay(); this.loadNextEpisode(); this.resetControlsTimer(); });
         add(this.fullscreenBtn, 'click', (e) => { e.preventDefault(); this.toggleFullscreen(); });
         add(this.pipBtn, 'click', (e) => { e.preventDefault(); this.togglePictureInPicture(); this.resetControlsTimer(); });
-
         add(this.speedSelector, 'change', (e) => { this.setSpeed(e.target.value); this.resetControlsTimer(); });
         add(this.volumeSlider, 'input', (e) => { this.setVolume(e.target.value); this.resetControlsTimer(); });
         add(this.muteBtn, 'click', (e) => { e.preventDefault(); this.toggleMute(); this.resetControlsTimer(); });
-
         add(this.themeBtn, 'click', (e) => { e.preventDefault(); this.toggleTheme(); this.resetControlsTimer(); });
         add(this.backBtn, 'click', (e) => { e.preventDefault(); this.goHome(); });
 
@@ -1039,21 +1080,15 @@ class SeriesPlayer {
         });
 
         add(this.goToEpisodeBtn, 'click', (e) => { e.preventDefault(); this.goToEpisode(); this.resetControlsTimer(); });
+        add(this.episodeSelect, 'keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); this.goToEpisode(); this.resetControlsTimer(); } });
 
-        add(this.episodeSelect, 'keydown', (e) => {
-            if (e.key === 'Enter') { e.preventDefault(); this.goToEpisode(); this.resetControlsTimer(); }
-        });
-
-        // Server selector change
         add(this.serverSelector, 'change', (e) => {
             this.currentServerId = e.target.value;
             console.log(`🔀 Switched server to: ${this.currentServerId}`);
-            // Reload the current episode with the new server
             this.loadEpisode(this.currentSeason, this.currentEpisode, true);
             this.resetControlsTimer();
         });
 
-        // Progress bar
         add(this.progressBar, 'click', (e) => {
             const rect = this.progressBar.getBoundingClientRect();
             const x = (e.clientX - rect.left) / rect.width;
@@ -1103,32 +1138,35 @@ class SeriesPlayer {
 
         add(this.progressBar, 'mousemove', () => this.resetControlsTimer());
 
-        // Shortcuts
         add(this.shortcutsHelp, 'click', () => this.showShortcuts());
         add(this.shortcutsHelp, 'keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.showShortcuts(); }
         });
         add(this.closeShortcuts, 'click', () => this.hideShortcuts());
 
-        // Mouse enter/leave on player
-        add(this.playerWrapper, 'mouseenter', () => {
-            if (this.isFullscreen) { this.showControls(); }
-        });
-        add(this.playerWrapper, 'mousemove', () => {
-            if (this.isFullscreen) { this.showControls(); this.resetControlsTimer(); }
-        });
-        add(this.playerWrapper, 'mouseleave', () => {
-            if (this.isFullscreen) { this.resetControlsTimer(); }
-        });
+        add(this.playerWrapper, 'mouseenter', () => { if (this.isFullscreen) { this.showControls(); } });
+        add(this.playerWrapper, 'mousemove', () => { if (this.isFullscreen) { this.showControls(); this.resetControlsTimer(); } });
+        add(this.playerWrapper, 'mouseleave', () => { if (this.isFullscreen) { this.resetControlsTimer(); } });
+        add(this.playerWrapper, 'touchstart', () => { if (this.isFullscreen) { this.showControls(); } }, { passive: true });
 
-        // Tap-to-show on mobile
-        add(this.playerWrapper, 'touchstart', () => {
-            if (this.isFullscreen) { this.showControls(); }
-        }, { passive: true });
-
-        // Iframe error/load
         add(this.player, 'error', () => this.showError('Player failed to load'));
         add(this.player, 'load', () => this.showLoading(false));
+
+        // Native video events for the direct HLS stream
+        if (this.videoPlayer) {
+            this.videoPlayer.addEventListener('play', () => {
+                if (this.currentServerId === 'vaplayer') this.handlePlayerEvent({ player_status: 'playing', player_progress: this.videoPlayer.currentTime, player_duration: this.videoPlayer.duration });
+            });
+            this.videoPlayer.addEventListener('pause', () => {
+                if (this.currentServerId === 'vaplayer') this.handlePlayerEvent({ player_status: 'paused', player_progress: this.videoPlayer.currentTime, player_duration: this.videoPlayer.duration });
+            });
+            this.videoPlayer.addEventListener('timeupdate', () => {
+                if (this.currentServerId === 'vaplayer') this.handlePlayerEvent({ player_status: 'playing', player_progress: this.videoPlayer.currentTime, player_duration: this.videoPlayer.duration });
+            });
+            this.videoPlayer.addEventListener('ended', () => {
+                if (this.currentServerId === 'vaplayer') this.handlePlayerEvent({ player_status: 'completed', player_progress: this.videoPlayer.duration, player_duration: this.videoPlayer.duration });
+            });
+        }
     }
 
     _onMessage(e) {
@@ -1170,64 +1208,20 @@ class SeriesPlayer {
         }
 
         switch (e.key) {
-            case ' ':
-                e.preventDefault();
-                this.togglePlay();
-                break;
-            case 'ArrowRight':
-                e.preventDefault();
-                this.seekTo(this.currentTime + 10);
-                break;
-            case 'ArrowLeft':
-                e.preventDefault();
-                this.seekTo(this.currentTime - 10);
-                break;
-            case 'ArrowUp':
-                e.preventDefault();
-                this.setVolume(Math.min(1, this.volume + 0.05));
-                break;
-            case 'ArrowDown':
-                e.preventDefault();
-                this.setVolume(Math.max(0, this.volume - 0.05));
-                break;
-            case 'n': case 'N':
-                e.preventDefault();
-                if (!this.nextEpisodeLoading) { this.hideNextOverlay(); this.loadNextEpisode(); }
-                break;
-            case 'p': case 'P':
-                e.preventDefault();
-                this.loadPreviousEpisode();
-                break;
-            case 'f': case 'F':
-                e.preventDefault();
-                this.toggleFullscreen();
-                break;
-            case 'i': case 'I':
-                e.preventDefault();
-                this.togglePictureInPicture();
-                break;
-            case 't': case 'T':
-                e.preventDefault();
-                this.toggleTheme();
-                break;
-            case 's': case 'S':
-                e.preventDefault();
-                if (!this.introSkipped && !this.skipIntroClicked) this.skipIntro();
-                break;
-            case 'm': case 'M':
-                e.preventDefault();
-                this.toggleMute();
-                break;
-            case '?':
-                e.preventDefault();
-                this.showShortcuts();
-                break;
-            case 'Escape':
-                e.preventDefault();
-                if (document.fullscreenElement) document.exitFullscreen?.();
-                else if (document.pictureInPictureElement) document.exitPictureInPicture?.();
-                else this.goHome();
-                break;
+            case ' ': e.preventDefault(); this.togglePlay(); break;
+            case 'ArrowRight': e.preventDefault(); this.seekTo(this.currentTime + 10); break;
+            case 'ArrowLeft': e.preventDefault(); this.seekTo(this.currentTime - 10); break;
+            case 'ArrowUp': e.preventDefault(); this.setVolume(Math.min(1, this.volume + 0.05)); break;
+            case 'ArrowDown': e.preventDefault(); this.setVolume(Math.max(0, this.volume - 0.05)); break;
+            case 'n': case 'N': e.preventDefault(); if (!this.nextEpisodeLoading) { this.hideNextOverlay(); this.loadNextEpisode(); } break;
+            case 'p': case 'P': e.preventDefault(); this.loadPreviousEpisode(); break;
+            case 'f': case 'F': e.preventDefault(); this.toggleFullscreen(); break;
+            case 'i': case 'I': e.preventDefault(); this.togglePictureInPicture(); break;
+            case 't': case 'T': e.preventDefault(); this.toggleTheme(); break;
+            case 's': case 'S': e.preventDefault(); if (!this.introSkipped && !this.skipIntroClicked) this.skipIntro(); break;
+            case 'm': case 'M': e.preventDefault(); this.toggleMute(); break;
+            case '?': e.preventDefault(); this.showShortcuts(); break;
+            case 'Escape': e.preventDefault(); if (document.fullscreenElement) document.exitFullscreen?.(); else if (document.pictureInPictureElement) document.exitPictureInPicture?.(); else this.goHome(); break;
         }
     }
 
@@ -1236,19 +1230,14 @@ class SeriesPlayer {
         if (document.visibilityState === 'hidden') this.saveProgressNow();
     }
 
-    _onBeforeUnload() {
-        this.saveProgressNow();
-    }
+    _onBeforeUnload() { this.saveProgressNow(); }
 
     saveProgressNow() {
         if (this.currentTime > 5 && this.duration > 0) {
-            try {
-                safeStorage.setItem(this.getStorageKey(), String(Math.floor(this.currentTime)));
-            } catch (e) {}
+            try { safeStorage.setItem(this.getStorageKey(), String(Math.floor(this.currentTime))); } catch (e) {}
         }
     }
 
-    // ---------- Player Event Handling ----------
     handlePlayerEvent(data) {
         if (this.destroyed || !data) return;
 
@@ -1279,14 +1268,11 @@ class SeriesPlayer {
             this.isPlaying = false;
         }
 
-        // Throttle progress saves (once per 5s)
         if (player_status === 'playing' && this.currentTime > 5) {
             const now = Date.now();
             if (now - this._lastProgressSave > 5000) {
                 this._lastProgressSave = now;
-                try {
-                    safeStorage.setItem(this.getStorageKey(), String(Math.floor(this.currentTime)));
-                } catch (e) {}
+                try { safeStorage.setItem(this.getStorageKey(), String(Math.floor(this.currentTime))); } catch (e) {}
             }
             if (now - this._lastContinueSave > 10000) {
                 this._lastContinueSave = now;
@@ -1300,7 +1286,6 @@ class SeriesPlayer {
             }
         }
 
-        // Intro skip visibility
         if (!this.introSkipped && !this.skipIntroClicked &&
             this.currentTime > 5 && this.currentTime < this.config.introDuration) {
             this.showSkipIntro();
@@ -1309,7 +1294,6 @@ class SeriesPlayer {
             this.introSkipped = true;
         }
 
-        // Episode end
         if (player_status === 'playing' && this.duration > 0 && !this.episodeEnded) {
             const timeToEnd = this.duration - this.currentTime;
             if (timeToEnd > 0 && timeToEnd < this.config.outroDuration && !this.nextEpisodeLoading) {
@@ -1325,23 +1309,20 @@ class SeriesPlayer {
         }
     }
 
-    // ---------- Shortcuts Popup ----------
     showShortcuts() { this.shortcutsPopup?.classList.add('active'); }
     hideShortcuts() { this.shortcutsPopup?.classList.remove('active'); }
 
-    // ---------- Navigation ----------
     goHome() {
         this.saveProgressNow();
         this.destroyed = true;
 
+        this.hideAllPlayers();
         try { this.player.src = 'about:blank'; } catch (e) {}
 
         clearInterval(this.nextEpisodeTimer);
         clearTimeout(this.controlsTimer);
         clearTimeout(this._seekTimeout);
 
-        // If we're in a deep-linked tab (opened via ?id=...), just close the tab.
-        // If we're on the main site, go back to the home screen.
         const urlParams = getUrlParams();
         if (urlParams.showId && window.opener) {
             try { window.close(); } catch (e) {}
@@ -1368,7 +1349,6 @@ class SeriesPlayer {
         window.player = null;
     }
 
-    // ---------- Utilities ----------
     formatTime(seconds) {
         if (!seconds || seconds < 0 || !isFinite(seconds)) return '0:00';
         const mins = Math.floor(seconds / 60);
@@ -1396,6 +1376,7 @@ class SeriesPlayer {
         document.removeEventListener('visibilitychange', this._onVisibilityChange);
         window.removeEventListener('beforeunload', this._onBeforeUnload);
 
+        this.hideAllPlayers();
         try { this.player.src = 'about:blank'; } catch (e) {}
         clearInterval(this.nextEpisodeTimer);
         clearTimeout(this.controlsTimer);
@@ -1412,9 +1393,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (window.location.protocol === 'file:') {
         console.warn('⚠️ Running from file:// protocol. For best results, use a local server.');
-        console.warn('💡 Try: python -m http.server 8000 or npx serve');
     }
 
-    // HomeController handles URL params internally — don't duplicate here.
     window.homeController = new HomeController();
 });
