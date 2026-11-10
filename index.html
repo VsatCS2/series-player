@@ -160,7 +160,7 @@
         }
 
         /* ============================================ */
-        /* SEARCH RESULTS (NEW) */
+        /* SEARCH RESULTS */
         /* ============================================ */
         .search-results {
             display: grid;
@@ -502,6 +502,14 @@
 
         #player-wrapper:hover #player {
             pointer-events: auto;
+        }
+
+        /* Native video element for direct HLS streams */
+        #video-player {
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: none;
         }
 
         /* Loading Indicator */
@@ -1593,7 +1601,7 @@
 <body>
 
     <!-- ============================================ -->
-    <!-- ON-SCREEN ERROR BAR (no dev console on PS5) -->
+    <!-- ON-SCREEN ERROR BAR -->
     <!-- ============================================ -->
     <script>
     (function() {
@@ -1617,7 +1625,7 @@
     </script>
 
     <!-- ============================================ -->
-    <!-- GLOBAL FETCH TIMEOUT (prevents hangs on PS5) -->
+    <!-- GLOBAL FETCH TIMEOUT -->
     <!-- ============================================ -->
     <script>
     (function() {
@@ -1663,7 +1671,7 @@
                 <div id="search-error" class="error-message hidden"></div>
             </div>
 
-            <!-- Search Results (NEW — required by script.js) -->
+            <!-- Search Results -->
             <div id="search-results" class="search-results hidden"></div>
 
             <!-- Continue Watching Row -->
@@ -1678,27 +1686,27 @@
                 <div id="recent-list" class="recent-list"></div>
             </div>
 
-            <!-- Quick Examples (Updated to open in new tabs) -->
+            <!-- Quick Examples (open in new tabs) -->
             <div class="quick-examples">
                 <h3>Quick Examples</h3>
                 <div class="example-grid">
-                    <a class="example-card" href="?id=3796&season=1&episode=1" target="_blank" rel="noopener">
+                    <a class="example-card" href="?id=3796&season=1&episode=1&provider=vaplayer" target="_blank" rel="noopener">
                         <span class="example-title">Trailer Park Boys</span>
                         <span class="example-id">TMDB: 3796</span>
                     </a>
-                    <a class="example-card" href="?id=tt13159924&season=1&episode=1" target="_blank" rel="noopener">
+                    <a class="example-card" href="?id=tt13159924&season=1&episode=1&provider=vaplayer" target="_blank" rel="noopener">
                         <span class="example-title">House of the Dragon</span>
                         <span class="example-id">IMDB: tt13159924</span>
                     </a>
-                    <a class="example-card" href="?id=1399&season=1&episode=1" target="_blank" rel="noopener">
+                    <a class="example-card" href="?id=1399&season=1&episode=1&provider=vaplayer" target="_blank" rel="noopener">
                         <span class="example-title">Game of Thrones</span>
                         <span class="example-id">TMDB: 1399</span>
                     </a>
-                    <a class="example-card" href="?id=tt0903747&season=1&episode=1" target="_blank" rel="noopener">
+                    <a class="example-card" href="?id=tt0903747&season=1&episode=1&provider=vaplayer" target="_blank" rel="noopener">
                         <span class="example-title">Breaking Bad</span>
                         <span class="example-id">IMDB: tt0903747</span>
                     </a>
-                    <a class="example-card" href="?id=tt0412142&season=1&episode=1" target="_blank" rel="noopener">
+                    <a class="example-card" href="?id=tt0412142&season=1&episode=1&provider=vaplayer" target="_blank" rel="noopener">
                         <span class="example-title">House M.D.</span>
                         <span class="example-id">IMDB: tt0412142</span>
                     </a>
@@ -1722,12 +1730,16 @@
                     Loading episode...
                 </div>
 
-                <!-- Sandbox removed — back to original working iframe -->
+                <!-- Iframe for embed providers -->
                 <iframe id="player"
                         allow="autoplay; fullscreen; picture-in-picture"
                         allowfullscreen
-                        frameborder="0">
+                        frameborder="0"
+                        style="display:none;">
                 </iframe>
+
+                <!-- Native video element for direct HLS streams (vaplayer API) -->
+                <video id="video-player" controls playsinline preload="metadata"></video>
 
                 <!-- Overlay UI Elements -->
                 <div id="episode-info">
@@ -1881,6 +1893,9 @@
             <button class="close-shortcuts" id="close-shortcuts">Close</button>
         </div>
     </div>
+
+    <!-- hls.js for direct stream playback -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
     <script src="config.js?v=4"></script>
     <script src="script.js?v=4"></script>
