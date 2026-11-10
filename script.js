@@ -26,6 +26,13 @@ const STREAMING_SERVERS = [
 ];
 
 // ============================================
+// CLOUDFLARE WORKER PROXY
+// ============================================
+// Routes vaplayer requests through a Worker that spoofs a desktop UA,
+// so the PS5 browser isn't blocked by the provider.
+const VAPLAYER_PROXY = 'https://vaplayer-proxy.zenithclaire5.workers.dev';
+
+// ============================================
 // HOME SCREEN CONTROLLER
 // ============================================
 
@@ -53,12 +60,18 @@ class HomeController {
             console.warn('Failed to render saved shows:', e);
         }
 
-        // Handle deep-link URL params
+        // Handle deep-link URL params: if ?id=... is present, jump straight
+        // into the player and hide the home screen immediately.
         const urlParams = getUrlParams();
         if (urlParams.showId) {
+            document.getElementById('home-screen')?.classList.remove('active');
             setTimeout(() => {
-                this.startShow(urlParams.showId, urlParams.season || 1, urlParams.episode || 1);
-            }, 100);
+                this.startShow(
+                    urlParams.showId,
+                    urlParams.season || 1,
+                    urlParams.episode || 1
+                );
+            }, 50);
         }
     }
 
@@ -95,14 +108,17 @@ class HomeController {
             this._searchDebounce = setTimeout(() => this.doLiveSearch(query), 350);
         });
 
+        // Example cards: open in a new tab with a unique URL
         document.querySelectorAll('.example-card').forEach(card => {
-            const activate = () => {
-                this.searchInput.value = card.dataset.id;
-                this.handleSearch();
+            const activate = (e) => {
+                e.preventDefault();
+                const id = card.dataset.id || card.getAttribute('href')?.replace(/^.*id=/, '').split('&')[0];
+                if (!id) return;
+                this.openInNewTab(id, 1, 1);
             };
             card.addEventListener('click', activate);
             card.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); }
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(e); }
             });
         });
 
@@ -162,7 +178,7 @@ class HomeController {
                     <div class="search-result-year">${item.year || ''}</div>
                 </div>
             `;
-            const activate = () => this.startShow(item.id, 1, 1);
+            const activate = () => this.openInNewTab(item.id, 1, 1);
             div.addEventListener('click', activate);
             div.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); }
@@ -203,7 +219,7 @@ class HomeController {
                     this.showError('No episodes found for this show.');
                     return;
                 }
-                this.startShow(id, 1, 1);
+                this.openInNewTab(id, 1, 1);
                 return;
             }
 
@@ -214,7 +230,7 @@ class HomeController {
                 return;
             }
             if (results.length === 1) {
-                this.startShow(results[0].id, 1, 1);
+                this.openInNewTab(results[0].id, 1, 1);
                 return;
             }
             // Multiple results — show them
@@ -264,6 +280,20 @@ class HomeController {
         });
     }
 
+    /**
+     * Opens a show in a new browser tab with a unique URL.
+     * The new tab's HomeController sees ?id=... and jumps straight to the player.
+     * If an ad hijacks the player tab, the original tab is untouched — click again.
+     */
+    openInNewTab(showId, season = 1, episode = 1) {
+        const url = new URL(window.location.href);
+        url.search = '';
+        url.searchParams.set('id', showId);
+        url.searchParams.set('season', season);
+        url.searchParams.set('episode', episode);
+        window.open(url.toString(), '_blank', 'noopener');
+    }
+
     renderContinueWatching() {
         const shows = getContinueWatching();
         if (shows.length === 0) {
@@ -294,7 +324,7 @@ class HomeController {
 
             div.addEventListener('click', (e) => {
                 if (e.target.classList.contains('continue-remove')) return;
-                this.startShow(item.id, item.season || 1, item.episode || 1);
+                this.openInNewTab(item.id, item.season || 1, item.episode || 1);
             });
 
             div.querySelector('.continue-remove').addEventListener('click', (e) => {
@@ -333,7 +363,7 @@ class HomeController {
             div.addEventListener('click', (e) => {
                 if (e.target.classList.contains('recent-remove')) return;
                 const resume = this.getResumePoint(item.id);
-                this.startShow(
+                this.openInNewTab(
                     item.id,
                     resume?.season || item.season || 1,
                     resume?.episode || item.episode || 1
@@ -658,7 +688,8 @@ class SeriesPlayer {
                 return `https://player.smashy.stream/tv/${id}?s=${season}&e=${episode}&autoplay=1${resumeTime > 0 ? `&t=${resumeTime}` : ''}`;
             case 'vaplayer':
             default:
-                let url = `https://vaplayer.ru/embed/tv/${id}/${season}/${episode}`;
+                // Build the original vaplayer URL
+                const originalUrl = `https://vaplayer.ru/embed/tv/${id}/${season}/${episode}`;
                 const params = new URLSearchParams();
                 params.set('autoplay', '1');
                 params.set('controls', '1');
@@ -666,7 +697,10 @@ class SeriesPlayer {
                 params.set('showinfo', '0');
                 params.set('modestbranding', '1');
                 if (resumeTime > 0) params.set('resumeAt', resumeTime);
-                return url + '?' + params.toString();
+                const fullUrl = originalUrl + '?' + params.toString();
+
+                // Route through the Cloudflare Worker that spoofs the User-Agent
+                return `${VAPLAYER_PROXY}/?url=${encodeURIComponent(fullUrl)}`;
         }
     }
 
@@ -1305,6 +1339,13 @@ class SeriesPlayer {
         clearInterval(this.nextEpisodeTimer);
         clearTimeout(this.controlsTimer);
         clearTimeout(this._seekTimeout);
+
+        // If we're in a deep-linked tab (opened via ?id=...), just close the tab.
+        // If we're on the main site, go back to the home screen.
+        const urlParams = getUrlParams();
+        if (urlParams.showId && window.opener) {
+            try { window.close(); } catch (e) {}
+        }
 
         const homeScreen = document.getElementById('home-screen');
         const playerScreen = document.getElementById('player-screen');
