@@ -4,6 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Series Player</title>
+    <meta name="description" content="Search any TV show and pick up where you left off." />
+    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="color-scheme" content="dark light" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🎬%3C/text%3E%3C/svg%3E" />
     <style>
         /* Reset & Base */
         * {
@@ -1596,9 +1600,66 @@
                 width: 36px;
             }
         }
+
+        /* ============================================ */
+        /* POLISH: footer, focus rings, reduced motion  */
+        /* ============================================ */
+        .home-footer {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            color: #555;
+            font-size: 12px;
+        }
+
+        .footer-btn {
+            background: none;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #888;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .footer-btn:hover {
+            color: #fff;
+            border-color: rgba(229, 9, 20, 0.5);
+            background: rgba(229, 9, 20, 0.12);
+        }
+
+        body.light-theme .home-footer { border-top-color: rgba(0, 0, 0, 0.08); color: #888; }
+        body.light-theme .footer-btn { color: #666; border-color: rgba(0, 0, 0, 0.15); }
+        body.light-theme .footer-btn:hover { color: #000; }
+
+        /* Visible focus for keyboard / gamepad (PS5 d-pad) navigation */
+        a:focus-visible,
+        button:focus-visible,
+        select:focus-visible,
+        [tabindex]:focus-visible {
+            outline: 3px solid #e50914;
+            outline-offset: 2px;
+        }
+
+        .example-card, .example-card:visited { color: inherit; text-decoration: none; }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
     </style>
 </head>
 <body>
+    <noscript><div style="padding:40px;text-align:center;font-family:sans-serif;color:#ccc;">Series Player needs JavaScript enabled to work.</div></noscript>
 
     <!-- ============================================ -->
     <!-- ON-SCREEN ERROR BAR -->
@@ -1711,6 +1772,13 @@
                         <span class="example-id">IMDB: tt0412142</span>
                     </a>
                 </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="home-footer">
+                <button type="button" id="home-theme-btn" class="footer-btn" title="Toggle theme (T)">🌓 Theme</button>
+                <button type="button" id="clear-data-btn" class="footer-btn" title="Clear saved shows, progress and preferences">🗑 Clear saved data</button>
+                <span>Press <kbd style="background:#222;border:1px solid #333;border-radius:3px;padding:1px 6px;font-size:11px;">/</kbd> to search</span>
             </div>
         </div>
     </div>
@@ -1897,7 +1965,7 @@
     <!-- hls.js for direct stream playback -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
-    <script src="config.js?v=4"></script>
-    <script src="script.js?v=4"></script>
+    <script src="config.js?v=6"></script>
+    <script src="script.js?v=6"></script>
 </body>
 </html>

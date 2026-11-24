@@ -7,7 +7,27 @@ const PLAYER_PREFS = {
     set speed(v) { try { safeStorage.setItem('player_speed', String(v)); } catch (e) {} },
     get volume() { return parseFloat(safeStorage.getItem('player_volume') || '1'); },
     set volume(v) { try { safeStorage.setItem('player_volume', String(v)); } catch (e) {} },
+    // Last server the user picked. Falls back to the first server in STREAMING_SERVERS.
+    get provider() {
+        const saved = safeStorage.getItem('player_provider');
+        const valid = STREAMING_SERVERS.some(sv => sv.id === saved);
+        return valid ? saved : STREAMING_SERVERS[0].id;
+    },
+    set provider(v) { try { safeStorage.setItem('player_provider', String(v)); } catch (e) {} },
 };
+
+// Turn raw network/timeout errors into something a person can act on
+function friendlyError(err) {
+    const msg = String((err && err.message) || err || '');
+    const name = (err && err.name) || '';
+    if (name === 'TimeoutError' || name === 'AbortError' || /timeout|timed out|aborted/i.test(msg)) {
+        return 'The request timed out. Check your connection and try again.';
+    }
+    if (/failed to fetch|networkerror|load failed|network request failed/i.test(msg)) {
+        return "Couldn't reach the show database. Check your connection and try again.";
+    }
+    return msg || 'Something went wrong. Please try again.';
+}
 
 // ============================================
 // AVAILABLE STREAMING SERVERS
@@ -62,7 +82,7 @@ class HomeController {
                     urlParams.showId,
                     urlParams.season || 1,
                     urlParams.episode || 1,
-                    urlParams.provider || 'vaplayer'
+                    urlParams.provider || PLAYER_PREFS.provider
                 );
             }, 50);
         }
@@ -105,7 +125,7 @@ class HomeController {
                 e.preventDefault();
                 const id = card.dataset.id || card.getAttribute('href')?.replace(/^.*id=/, '').split('&')[0];
                 if (!id) return;
-                this.openInNewTab(id, 1, 1, 'vaplayer');
+                this.openInNewTab(id, 1, 1, PLAYER_PREFS.provider);
             };
             card.addEventListener('click', activate);
             card.addEventListener('keydown', (e) => {
@@ -117,6 +137,14 @@ class HomeController {
         document.getElementById('clear-data-btn')?.addEventListener('click', () => this.clearAllData());
 
         document.addEventListener('keydown', (e) => {
+            const tag = e.target.tagName;
+            if (e.key === '/' && tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT' &&
+                !document.getElementById('player-screen')?.classList.contains('active')) {
+                e.preventDefault();
+                this.searchInput.focus();
+                this.searchInput.select();
+                return;
+            }
             if ((e.key === 't' || e.key === 'T') &&
                 !document.getElementById('player-screen')?.classList.contains('active') &&
                 e.target.tagName !== 'INPUT') {
@@ -168,7 +196,7 @@ class HomeController {
                     <div class="search-result-year">${item.year || ''}</div>
                 </div>
             `;
-            const activate = () => this.openInNewTab(item.id, 1, 1, 'vaplayer');
+            const activate = () => this.openInNewTab(item.id, 1, 1, PLAYER_PREFS.provider);
             div.addEventListener('click', activate);
             div.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); }
@@ -208,7 +236,7 @@ class HomeController {
                     this.showError('No episodes found for this show.');
                     return;
                 }
-                this.openInNewTab(id, 1, 1, 'vaplayer');
+                this.openInNewTab(id, 1, 1, PLAYER_PREFS.provider);
                 return;
             }
 
@@ -218,12 +246,12 @@ class HomeController {
                 return;
             }
             if (results.length === 1) {
-                this.openInNewTab(results[0].id, 1, 1, 'vaplayer');
+                this.openInNewTab(results[0].id, 1, 1, PLAYER_PREFS.provider);
                 return;
             }
             this.renderSearchResults(results);
         } catch (error) {
-            this.showError(`Search failed: ${error.message || 'Please try again'}`);
+            this.showError(`Search failed: ${friendlyError(error)}`);
         } finally {
             this.isLoading = false;
             this.searchBtn.disabled = false;
@@ -231,7 +259,7 @@ class HomeController {
         }
     }
 
-    startShow(showId, season, episode, provider = 'vaplayer') {
+    startShow(showId, season, episode, provider = PLAYER_PREFS.provider) {
         const homeScreen = document.getElementById('home-screen');
         const playerScreen = document.getElementById('player-screen');
 
@@ -267,7 +295,7 @@ class HomeController {
         });
     }
 
-    openInNewTab(showId, season = 1, episode = 1, provider = 'vaplayer') {
+    openInNewTab(showId, season = 1, episode = 1, provider = PLAYER_PREFS.provider) {
         const url = new URL(window.location.href);
         url.search = '';
         url.searchParams.set('id', showId);
@@ -289,6 +317,11 @@ class HomeController {
         shows.forEach(item => {
             const div = document.createElement('div');
             div.className = 'continue-item';
+            div.setAttribute('role', 'button');
+            div.setAttribute('tabindex', '0');
+            div.addEventListener('keydown', (e) => {
+                if (e.target === div && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); div.click(); }
+            });
             const progress = item.progress || 0;
             const total = item.duration || 1;
             const percent = Math.min((progress / total) * 100, 100);
@@ -307,7 +340,7 @@ class HomeController {
 
             div.addEventListener('click', (e) => {
                 if (e.target.classList.contains('continue-remove')) return;
-                this.openInNewTab(item.id, item.season || 1, item.episode || 1, item.provider || 'vaplayer');
+                this.openInNewTab(item.id, item.season || 1, item.episode || 1, PLAYER_PREFS.provider);
             });
 
             div.querySelector('.continue-remove').addEventListener('click', (e) => {
@@ -332,6 +365,11 @@ class HomeController {
         recent.forEach(item => {
             const div = document.createElement('div');
             div.className = 'recent-item';
+            div.setAttribute('role', 'button');
+            div.setAttribute('tabindex', '0');
+            div.addEventListener('keydown', (e) => {
+                if (e.target === div && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); div.click(); }
+            });
             const resume = this.getResumePoint(item.id);
 
             div.innerHTML = `
@@ -350,7 +388,7 @@ class HomeController {
                     item.id,
                     resume?.season || item.season || 1,
                     resume?.episode || item.episode || 1,
-                    item.provider || 'vaplayer'
+                    PLAYER_PREFS.provider
                 );
             });
 
@@ -434,7 +472,10 @@ class SeriesPlayer {
         this._lastProgressSave = 0;
         this._lastContinueSave = 0;
 
-        this.currentServerId = config.initialProvider || 'vaplayer';
+        this.currentServerId = STREAMING_SERVERS.some(sv => sv.id === config.initialProvider)
+            ? config.initialProvider
+            : PLAYER_PREFS.provider;
+        this._loadToken = 0;
         this.hls = null;
 
         this.cacheDomElements();
@@ -521,6 +562,18 @@ class SeriesPlayer {
             this.config.showTitle = this.showData.title;
             this.config.episodesPerSeason = this.showData.episodesPerSeason;
 
+            // A hand-edited link like ?season=9&episode=99 shouldn't leave a blank player
+            const eps = this.config.episodesPerSeason;
+            const seasonKeys = Object.keys(eps).map(Number).sort((a, b) => a - b);
+            if (seasonKeys.length) {
+                if (!eps[this.currentSeason]) {
+                    this.currentSeason = seasonKeys[0];
+                    this.currentEpisode = 1;
+                } else {
+                    this.currentEpisode = Math.min(Math.max(1, this.currentEpisode), eps[this.currentSeason]);
+                }
+            }
+
             if (this.showTitle) this.showTitle.textContent = this.showData.title;
             document.title = `${this.showData.title} - Series Player`;
 
@@ -547,14 +600,20 @@ class SeriesPlayer {
             }
         } catch (error) {
             console.error('❌ Failed to load show:', error);
-            this.showError(error.message);
+            this.showError(friendlyError(error));
         } finally {
             this.showLoading(false);
         }
     }
 
+    clearError() {
+        this.playerWrapper?.querySelectorAll('.player-error-overlay').forEach(el => el.remove());
+    }
+
     showError(message) {
+        this.clearError();
         const errorDiv = document.createElement('div');
+        errorDiv.className = 'player-error-overlay';
         errorDiv.style.cssText = `
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             color: #ff6b6b; text-align: center; background: rgba(0,0,0,0.92);
@@ -563,16 +622,59 @@ class SeriesPlayer {
         `;
         errorDiv.innerHTML = `
             <div style="font-size:42px;margin-bottom:14px;">❌</div>
-            <div style="font-weight:600;margin-bottom:8px;font-size:16px;">Failed to load show</div>
+            <div style="font-weight:600;margin-bottom:8px;font-size:16px;">Failed to load</div>
             <div style="color:#aaa;font-size:13px;line-height:1.5;">${this.escapeHtml(message || 'Please check the ID and try again')}</div>
-            <button id="error-back-btn" style="
-                margin-top:18px; padding:10px 22px; background:#e50914;
-                border:none; border-radius:6px; color:white; font-size:13px;
-                font-weight:600; cursor:pointer;
-            ">← Go Back</button>
+            <div style="color:#777;font-size:12px;margin-top:10px;">You can pick a different server from the dropdown in the controls bar.</div>
+            <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:18px;">
+                ${this.initialized ? `<button type="button" class="player-error-next" style="
+                    padding:10px 22px; background:#e50914; border:none; border-radius:6px;
+                    color:white; font-size:13px; font-weight:600; cursor:pointer;
+                ">Try next server</button>` : ''}
+                <button type="button" class="player-error-back" style="
+                    padding:10px 22px; background:rgba(255,255,255,0.12); border:none; border-radius:6px;
+                    color:white; font-size:13px; font-weight:600; cursor:pointer;
+                ">← Go Back</button>
+            </div>
         `;
         this.playerWrapper.appendChild(errorDiv);
-        errorDiv.querySelector('#error-back-btn').addEventListener('click', () => this.goHome());
+        errorDiv.querySelector('.player-error-back').addEventListener('click', () => this.goHome());
+        errorDiv.querySelector('.player-error-next')?.addEventListener('click', () => this.tryNextServer());
+    }
+
+    switchServer(id) {
+        if (this.destroyed || !STREAMING_SERVERS.some(sv => sv.id === id)) return;
+        this.saveProgressNow();
+        this.currentServerId = id;
+        PLAYER_PREFS.provider = id;
+        if (this.serverSelector) this.serverSelector.value = id;
+        console.log(`🔀 Switched server to: ${id}`);
+        this.isLoading = false; // otherwise a switch within ~1s of loading is ignored
+        this.loadEpisode(this.currentSeason, this.currentEpisode, true);
+    }
+
+    tryNextServer() {
+        const i = STREAMING_SERVERS.findIndex(sv => sv.id === this.currentServerId);
+        this.switchServer(STREAMING_SERVERS[(i + 1) % STREAMING_SERVERS.length].id);
+    }
+
+    updateDocTitle() {
+        const title = this.showData?.title;
+        if (!title) return;
+        const code = `S${String(this.currentSeason).padStart(2, '0')}E${String(this.currentEpisode).padStart(2, '0')}`;
+        document.title = `${title} · ${code} – Series Player`;
+    }
+
+    // Keep the address bar in sync so reloads / shared links reopen the same episode + server.
+    syncUrl() {
+        try {
+            const url = new URL(window.location.href);
+            ['tmdb', 'imdb'].forEach(k => url.searchParams.delete(k));
+            url.searchParams.set('id', this.showId);
+            url.searchParams.set('season', this.currentSeason);
+            url.searchParams.set('episode', this.currentEpisode);
+            url.searchParams.set('provider', this.currentServerId);
+            window.history.replaceState(null, '', url.toString());
+        } catch (e) { /* file:// or sandboxed frames can refuse this; harmless */ }
     }
 
     async loadEpisode(season, episode, checkResume = true) {
@@ -604,6 +706,7 @@ class SeriesPlayer {
         }
 
         updateRecentShowProgress(this.showId, season, episode);
+        this.syncUrl();
 
         let resumeTime = 0;
         if (checkResume) {
@@ -617,6 +720,8 @@ class SeriesPlayer {
             }
         }
 
+        this.clearError();
+        this._loadToken++;
         this.hideAllPlayers();
 
         if (this.currentServerId === 'vaplayer') {
@@ -626,6 +731,7 @@ class SeriesPlayer {
         }
 
         this.updateEpisodeInfo(season, episode);
+        this.updateDocTitle();
         this.hideSkipIntro();
         this.hideNextOverlay();
         this.resetProgress();
@@ -638,6 +744,8 @@ class SeriesPlayer {
     }
 
     async loadDirectStream(season, episode, resumeTime = 0) {
+        const token = this._loadToken;
+        const stale = () => token !== this._loadToken || this.destroyed;
         // Proxy the API call through the Worker to bypass CORS.
         const apiUrl = `${VAPLAYER_API}?imdb=${this.showId}&type=tv&season=${season}&episode=${episode}`;
         const proxiedApi = `${VAPLAYER_PROXY}/?api=${encodeURIComponent(apiUrl)}`;
@@ -646,6 +754,7 @@ class SeriesPlayer {
             const res = await fetch(proxiedApi);
             if (!res.ok) throw new Error(`API returned ${res.status}`);
             const data = await res.json();
+            if (stale()) return;
             console.log('📡 vaplayer API response:', data);
 
             // Try several possible response shapes — log if none match.
@@ -688,7 +797,7 @@ class SeriesPlayer {
                 });
 
                 this.hls.on(Hls.Events.ERROR, (event, data) => {
-                    if (data.fatal) {
+                    if (data.fatal && !stale()) {
                         console.error('❌ HLS fatal:', data.type, data.details, data);
                         this.showError(`Stream error: ${data.details}`);
                     } else {
@@ -716,6 +825,7 @@ class SeriesPlayer {
                 throw new Error('HLS is not supported in this browser');
             }
         } catch (err) {
+            if (stale()) return;
             console.error('❌ Direct stream failed:', err);
             this.showError(err.message || 'Failed to load direct stream');
             this.showLoading(false);
@@ -1083,9 +1193,7 @@ class SeriesPlayer {
         add(this.episodeSelect, 'keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); this.goToEpisode(); this.resetControlsTimer(); } });
 
         add(this.serverSelector, 'change', (e) => {
-            this.currentServerId = e.target.value;
-            console.log(`🔀 Switched server to: ${this.currentServerId}`);
-            this.loadEpisode(this.currentSeason, this.currentEpisode, true);
+            this.switchServer(e.target.value);
             this.resetControlsTimer();
         });
 
@@ -1327,6 +1435,14 @@ class SeriesPlayer {
         if (urlParams.showId && window.opener) {
             try { window.close(); } catch (e) {}
         }
+
+        this.clearError();
+        document.title = 'Series Player';
+        try {
+            const clean = new URL(window.location.href);
+            clean.search = '';
+            window.history.replaceState(null, '', clean.toString());
+        } catch (e) {}
 
         const homeScreen = document.getElementById('home-screen');
         const playerScreen = document.getElementById('player-screen');

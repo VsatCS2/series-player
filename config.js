@@ -365,6 +365,7 @@ function clearAllAppData() {
         key === RECENT_SHOWS_KEY ||
         key === CONTINUE_WATCHING_KEY ||
         key === 'player_speed' ||
+        key === 'player_provider' ||
         key === 'player_volume' ||
         key === 'theme'
     ));
